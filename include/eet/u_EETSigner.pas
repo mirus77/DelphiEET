@@ -1,0 +1,626 @@
+unit u_EETSigner;
+
+interface
+
+uses Classes, libxml2, libxmlsec, SysUtils;
+
+Type
+  TEETSigner = class(TComponent)
+  private
+    FCertPassword: AnsiString;
+    FActive: Boolean;
+    FPFXStream: TMemoryStream; // stream s (PFX)
+    FCERStream: TMemoryStream; // stream s overovacim (CER)
+    FMngr: xmlSecKeysMngrPtr;
+    FVerifyCertIncluded: Boolean;
+    procedure InitXMLSec;
+    procedure ShutDownXMLSec;
+    procedure SetActive(const Value: Boolean);
+    procedure CheckActive;
+    procedure CheckInactive;
+  public
+    {:Nacita klice}
+    property Active: Boolean read FActive write SetActive;
+    {:Certifikat na overeni nacten}
+    property VerifyCertIncluded: Boolean read FVerifyCertIncluded;
+    {: Odstranit ovrovaci certifikat}
+    procedure ClearVerifyCert;
+    {:Nacist PFX certifikat ze souboru s pozaovanym heslem }
+    procedure LoadPFXCertFromFile(const PFXFileName: TFileName; const CertPassword: AnsiString);
+    {:Nacist PFX certifikat ze sreamu s pozaovanym heslem }
+    procedure LoadPFXCertFromStream(PFXStream: TStream; const CertPassword: AnsiString);
+    {:Nacist overovaci certifiat ye souboru (CER format)}
+    procedure LoadVerifyCertFromFileName(const CerFileName: TFileName);
+    {:Nacist overovaci certifiat ze streamu (CER format)}
+    procedure LoadVerifyCertFromStream(const CerStream: TStream);
+    {:Vratit Certificate RAW Data (base64 string)}
+    function GetRawCertDataAsBase64String(): String;
+
+    {:Podpis XML dokumentu.
+
+    Podepisuje XML dkment a vraci True pokud je uspesne podepsan}
+    function SignXML(XMLStream: TMemoryStream): Boolean;
+    {:Podepsuje retezec a vraci otisk}
+    function SignString(const s: string): AnsiString;
+    {:Overeni XML ve streamu}
+    function VerifyXML(XMLSTream: TMemoryStream;
+      const SignedNodeName: UTF8String = ''; const IdProp: UTF8String = 'wsu:Id'): boolean;
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy(); override;
+end;
+
+implementation
+
+uses
+  u_EETSignerExceptions, StrUtils;
+
+const
+  PFXCERT_KEYNAME:PAnsiChar   = 'p';
+  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v2';
+
+var
+  EETSignerCount: Integer;
+
+{ TEETSigner }
+
+procedure TEETSigner.CheckActive;
+begin
+  if not Active
+  then raise EEETSignerException.Create(sSignerInactive);
+end;
+
+procedure TEETSigner.CheckInactive;
+begin
+  if Active
+  then raise EEETSignerException.Create(sSignerInactive);
+end;
+
+procedure TEETSigner.ClearVerifyCert;
+begin
+  FCERStream.Clear;
+end;
+
+constructor TEETSigner.Create(AOwner: TComponent);
+begin
+  Inc(EETSignerCount);
+  InitXMLSec;
+  inherited Create(AOwner);
+  FPFXStream := TMemoryStream.Create;
+  FCERStream := TMemoryStream.Create;
+  FMngr := nil;
+  FActive := False;
+  FVerifyCertIncluded := False;
+end;
+
+destructor TEETSigner.Destroy;
+begin
+  if Active
+  then Active := False;
+  FPFXStream.Free;
+  FCERStream.Free;
+  Dec(EETSignerCount);
+  ShutDownXMLSec;
+  inherited;
+end;
+
+function TEETSigner.GetRawCertDataAsBase64String: String;
+var
+  Doc: xmlDocPtr;
+  Cur: xmlNodePtr;
+  erCode: integer;
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  secKey: xmlSecKeyPtr;
+  secKeyData : xmlSecKeyDataPtr;
+begin
+  secKey := nil; Doc := nil; keyInfoCtx := nil;
+  CheckActive;
+  try
+    keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+    if keyInfoCtx = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecKeyInfoCtxCreate']);
+
+    secKey :=  xmlSecKeysMngrFindKey(FMngr, PFXCERT_KEYNAME, keyInfoCtx);
+    if secKey = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecKeysMngrFindKey']);
+
+    secKeyData := xmlSecKeyGetData(secKey, xmlSecKeyDataX509GetKlass);
+    if secKeyData = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecKeyGetData']);
+
+    doc := xmlSecCreateTree(xmlCharPtr('Keys'), xmlSecNs);
+    if doc = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecCreateTree']);
+
+    cur := xmlSecAddChild(xmlDocGetRootElement(doc), xmlSecNodeKeyInfo, xmlSecDSigNs);
+    if Cur = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 1']);
+
+    if(nil = xmlSecAddChild(cur, xmlSecNodeKeyName, xmlSecDSigNs))
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 2']);
+
+    if(nil = xmlSecAddChild(cur, secKeyData.id.dataNodeName, secKeyData.id.dataNodeNs))
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 3']);
+
+    keyInfoCtx.mode                 := xmlSecKeyInfoModeWrite;
+    keyInfoCtx.base64LineSize       := 0; // no lineBreaks in X509Certificate
+
+    erCode := xmlSecKeyInfoNodeWrite(cur, secKey, keyInfoCtx);
+    if erCode < 0
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecKeyInfoNodeWrite']);
+
+    Cur := xmlSecFindNode(cur, xmlSecNodeX509Data, secKeyData.id.dataNodeNs);
+    if Cur = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecFindNode : ' + string(xmlSecNodeX509Data)]);
+
+    Cur := xmlSecFindNode(cur, xmlSecNodeX509Certificate, secKeyData.id.dataNodeNs);
+    if Cur = nil
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecFindNode : ' + string(xmlSecNodeX509Certificate)]);
+
+    Result := string(xmlNodeGetContent(Cur));
+  finally
+    if doc <> nil
+    then xmlFreeDoc(doc);
+    if keyInfoCtx <> nil
+    then xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil
+    then xmlSecKeyDestroy(secKey);
+  end;
+end;
+
+procedure TEETSigner.InitXMLSec;
+begin
+  if EETSignerCount > 1
+  then Exit;
+
+  __xmlLoadExtDtdDefaultValue^ := XML_DETECT_IDS or XML_COMPLETE_ATTRS;
+  xmlSubstituteEntitiesDefault(1);
+  __xmlIndentTreeOutput^ := 0;  // nemaji se formatovat XML elementy
+
+  xmlSecBase64SetDefaultLineSize(0); // Kvuli jednoradkove SignatureValue
+
+  if (xmlSecInit() < 0)
+  then raise EEETSignerException.Create(sSignerXmlSecInitError);
+
+  if (xmlSecCheckVersionExt(1, 2, 18, xmlSecCheckVersionABICompatible) <> 1)
+  then raise EEETSignerException.Create(sSignerInitWrongDll);
+
+  if (xmlSecCryptoDLLoadLibrary('openssl') < 0)
+  then raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
+
+  if (xmlSecCryptoAppInit(nil) < 0)
+  then raise EEETSignerException.Create(sSignerXmlSecInitError);
+
+  if (xmlSecCryptoInit() < 0)
+  then raise EEETSignerException.Create(sSignerXmlSecInitError);
+end;
+
+procedure TEETSigner.LoadPFXCertFromFile(const PFXFileName: TFileName; const CertPassword: AnsiString);
+begin
+  CheckInactive;
+  if CertPassword = ''
+  then raise EEETSignerException.Create(sSignerNoPassword);
+  FPFXStream.Clear;
+  FPFXStream.LoadFromFile(PFXFileName);
+  FCertPassword := CertPassword;
+end;
+
+procedure TEETSigner.LoadPFXCertFromStream(PFXStream: TStream; const CertPassword: AnsiString);
+begin
+  CheckInactive;
+  if CertPassword = ''
+  then raise EEETSignerException.Create(sSignerNoPassword);
+  FPFXStream.Clear;
+  FPFXStream.LoadFromStream(PFXStream);
+  FCertPassword := CertPassword;
+end;
+
+procedure TEETSigner.LoadVerifyCertFromFileName(const CerFileName: TFileName);
+begin
+  CheckInactive;
+  FCERStream.Clear;
+  FCERStream.LoadFromFile(CerFileName);
+end;
+
+procedure TEETSigner.LoadVerifyCertFromStream(const CerStream: TStream);
+begin
+  CheckInactive;
+  FCERStream.Clear;
+  FCERStream.LoadFromStream(CerStream);
+end;
+
+procedure TEETSigner.SetActive(const Value: Boolean);
+var
+  Key: xmlSecKeyPtr;
+  keysfilename : AnsiString;
+  certkeyformat : xmlSecKeyDataFormat;
+  certkeystring : AnsiString;
+begin
+  if Active = Value
+  then Exit;
+
+  Key := nil;
+
+  if FActive // pokud je aktivni, tak uklidit
+  then begin
+    FCertPassword := '';
+    if FMngr <> nil
+    then begin
+      xmlSecKeysMngrDestroy(FMngr);
+      FMngr := nil;
+    end;
+    FPFXStream.Clear;
+    FCERStream.Clear;
+    FActive := False;
+    Exit;
+  end;
+
+  if FCertPassword = '' // mora biti password
+  then raise EEETSignerException.Create(sSignerNoPassword);
+
+  try
+    try
+      {$ASSERTIONS ON}
+      {$BOOLEVAL OFF}
+      if FPFXStream.Size > 0
+      then begin
+        FMngr := xmlSecKeysMngrCreate();
+        if (FMngr = nil) or (xmlSecCryptoAppDefaultKeysMngrInit(FMngr) <> 0)
+        then raise EEETSignerException.Create(sSignerKeyMngrCreateFail);
+
+        Key := xmlSecCryptoAppKeyLoadMemory(
+          FPFXStream.Memory,
+          FPFXStream.Size,
+          xmlSecKeyDataFormatPkcs12,
+          Pointer(FCertPassword), nil, nil);
+        if (Key = nil)
+        then raise EEETSignerException.Create(sSignerInvalidPFXCert);
+        if xmlSecKeySetName(Key, PFXCERT_KEYNAME) <> 0
+        then Assert(False);
+        Key.usage := 1;
+
+        if (xmlSecCryptoAppDefaultKeysMngrAdoptKey(FMngr, Key) <> 0)
+        then raise EEETSignerException.Create(sSignerInvalidPFXCert)
+        else Key := nil;
+      end
+      else raise EEETSignerException.Create(sSignerInvalidPFXCert);
+
+      //load verify certificate
+      if FCERStream.Size > 0
+      then begin
+        certkeyformat := xmlSecKeyDataFormatCertDer;
+
+        SetLength(certkeystring, FCERStream.Size);
+        FCERStream.Seek(0, soFromBeginning);
+        FCERStream.Read(PAnsiChar(certkeystring)^, FCERStream.Size);
+        FCERStream.Seek(0, soFromBeginning);
+        if Pos(AnsiString('-BEGIN CERTIFICATE-'), certkeystring) > 0 then
+          certkeyformat := xmlSecKeyDataFormatCertPem;
+
+        if xmlSecCryptoAppKeysMngrCertLoadMemory(
+            FMngr,
+            FCERStream.Memory,
+            FCERStream.Size,
+            certkeyformat,
+            $100 {xmlSecKeyDataTypeTrusted} ) <> 0
+        then  begin
+          FVerifyCertIncluded := False;
+          raise EEETSignerException.Create(sSignerInvalidVerifyCert)
+        end
+        else FVerifyCertIncluded := True;
+      end;
+
+      FActive := True;
+
+      {$IFDEF DEBUG}
+      keysfilename:= 'keys.xml';
+      if xmlSecCryptoAppDefaultKeysMngrSave(FMngr,@keysfilename[1],$FFFF) < 0 then
+         raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
+      {$ENDIF}
+    except
+      FActive := False;
+      FVerifyCertIncluded := False;
+      if Key <> nil
+      then xmlSecKeyDestroy(Key);
+      if FMngr <> nil
+      then begin
+        xmlSecKeysMngrDestroy(FMngr);
+        FMngr := nil;
+      end;
+      raise;
+    end;
+  finally
+    FCertPassword := '';
+    FCERStream.Clear;
+    FPFXStream.Clear;
+  end;
+end;
+
+
+procedure TEETSigner.ShutDownXMLSec;
+begin
+  if EETSignerCount = 0 then
+  begin
+    xmlSecCryptoShutdown();
+    xmlSecCryptoAppShutdown();
+    xmlSecShutdown();
+  end;
+end;
+
+function TEETSigner.SignString(const s: string): AnsiString;
+const
+  SIGSIZE = 256;
+var
+  TransCtx: xmlSecTransformCtxPtr;
+  transId: xmlSecTransformId;
+  TransMethod: xmlSecTransformPtr;
+  buf: UTF8String;
+  bufSz: Integer;
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  secKey: xmlSecKeyPtr;
+begin
+  Result := '';
+  CheckActive;
+
+  new(TransCtx);
+  keyInfoCtx := nil;
+  secKey := nil;
+  buf := UTF8Encode(s);
+  bufSz := Length(buf);
+  try
+    if xmlSecTransformCtxInitialize(TransCtx) <> 0
+    then raise EEETSignerException.Create(sSignerTransformCtxFail);
+
+    keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+    if keyInfoCtx = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyInfoCtxCreate']);
+
+    secKey :=  xmlSecKeysMngrFindKey(FMngr, PFXCERT_KEYNAME, keyInfoCtx);
+    if secKey = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeysMngrFindKey']);
+
+    transId := xmlSecTransformRsaSha256GetKlass();
+
+    TransMethod := xmlSecTransformCtxCreateAndAppend(TransCtx, transId);
+    if TransMethod = nil
+    then raise EEETSignerException.Create(sSignerTransformCtxFail);
+    TransMethod.operation := xmlSecTransformOperationSign;
+
+    if xmlSecTransformSetKey(TransMethod, secKey) <> 0
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecTransformSetKey']);
+
+    if xmlSecTransformCtxPrepare(TransCtx, 1) <> 0
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecTransformCtxPrepare']);
+
+    if xmlSecTransformDefaultPushBin(TransCtx.first, Pointer(Buf), bufSz, 1, TransCtx) <> 0
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecTransformDefaultPushBin']);
+
+    if TransCtx.result.size <> SIGSIZE // potpis je uvijek SIGSIZE (256 byte) velièine
+    then raise EEETSignerException.CreateFmt(sSignerUnexpectedSignature, [TransCtx.result.size]);
+
+    setlength(Result, SIGSIZE);
+    Move(TransCtx.result.data^, Result[1], TransCtx.result.size);
+  finally
+    xmlSecTransformCtxFinalize(TransCtx);
+    Dispose(TransCtx);
+    if keyInfoCtx <> nil
+    then xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil
+    then xmlSecKeyDestroy(secKey);
+  end;
+end;
+
+function TEETSigner.SignXML(XMLStream: TMemoryStream): Boolean;
+var
+  Doc: xmlDocPtr;
+  Node, BodyNode: xmlNodePtr;
+  Buf: PUTF8String;
+  BufSz: integer;
+  erCode: integer;
+  DSigCtx: xmlSecDSigCtxPtr;
+
+  procedure RegisterID(xmlNode : xmlNodePtr; idName : xmlCharPtr);
+  var
+    attr : xmlAttrPtr;
+    tmp : xmlAttrPtr;
+    name : xmlCharPtr;
+  begin
+    {* find pointer to id attribute *}
+    attr := xmlHasProp(xmlNode, idName);
+    if((attr = nil) or (attr.children = nil)) then exit;
+
+    {* get the attribute (id) value *}
+    name := xmlNodeListGetString(xmlNode.doc, attr.children, 1);
+    if(name = nil) then exit;
+
+    {* check that we don't have that id already registered *}
+    tmp := xmlGetID(xmlNode.doc, name);
+    if(tmp <> nil) then
+      begin
+        xmlFree(name);
+        exit;
+      end;
+
+    {* finally register id *}
+    xmlAddID(nil, xmlNode.doc, name, attr);
+
+    {* and do not forget to cleanup *}
+    xmlFree(name);
+  end;
+begin
+  CheckActive;
+  {$BOOLEVAL OFF}
+  if (XMLStream = nil) or (XMLStream.Size = 0)
+  then raise EEETSignerException.Create(sSignerEmptyXML);
+
+  Doc := nil; Node := nil;
+  DSigCtx := xmlSecDSigCtxCreate(FMngr);
+  try
+    Buf := nil; BufSz := 0;
+
+    Doc := xmlSecParseMemory(XMLStream.Memory, XMLStream.Size, 0);
+    Assert(Doc <> nil);
+
+    Node := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeSignature()), xmlCharPtr(xmlSecDSigNs()));
+    Assert(Node <> nil);
+
+    BodyNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeBody), xmlCharPtr(xmlSecSoap11Ns));
+    Assert(BodyNode <> nil);
+
+    RegisterID(BodyNode, 'Id'); // kvuli node:Reference failed zaregostrovat hodnotu wsu:Id jako Id
+
+    DSigCtx.keyInfoWriteCtx.base64LineSize := 0;
+
+    erCode := xmlSecDSigCtxSign(DSigCtx, Node);
+    Result := erCode = 0;
+    Assert(erCode = 0);
+
+    if Result
+    then begin
+      xmlDocDumpMemory(Doc, @Buf, @BufSz);
+      XMLStream.SetSize(BufSz);
+      XMLStream.Position := 0;
+      XMLStream.WriteBuffer(Buf^, BufSz);
+      xmlBufferFree(Pointer(Buf));
+    end;
+  finally
+    if Node = nil
+    then xmlFreeNode(Node);
+    if Doc <> nil
+    then xmlFreeDoc(Doc);
+    xmlSecDSigCtxDestroy(DSigCtx);
+  end;
+end;
+
+function TEETSigner.VerifyXML(XMLSTream: TMemoryStream; const SignedNodeName, IdProp: UTF8String): boolean;
+var
+  Doc: xmlDocPtr;
+  Node, SignatureNode: xmlNodePtr;
+  BSTNode: xmlNodePtr;
+//  KeyInfoNode, x509Data, x509Certificate : xmlNodePtr;
+  DsigCtx: xmlSecDSigCtxPtr;
+  Attr: xmlAttrPtr;
+  IdVal: AnsiString;
+
+  ss : TStringStream;
+  ms : TMemoryStream;
+begin
+    CheckActive;
+
+    Doc := nil; DsigCtx := nil; {Attr := nil;}
+    Result := False;
+    try
+      Doc := xmlSecParseMemory( xmlSecBytePtr(XMLStream.Memory), XMLStream.Size, 0);
+      if Doc = nil
+      then raise EEETXMLException.Create(sXMLNotXML);
+
+      if SignedNodeName <> ''
+      then begin
+        Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(FISKXML_TNSSCHEMA_URI));
+        if Node = nil then
+          Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(xmlSecSoap11Ns));
+        if Node <> nil
+        then begin
+          Attr := xmlHasProp(Node, PAnsiChar(IdProp) );
+          if Attr <> nil
+          then begin
+            IdVal := xmlGetProp(Node, PAnsiChar(IdProp));
+            xmlAddID(nil, Doc, @(IdVal[1]), Attr);
+          end;
+        end;
+      end;
+
+      BSTNode := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar('BinarySecurityToken'), PAnsiChar('http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'));
+
+      SignatureNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeSignature), xmlCharPtr(xmlSecDSigNs));
+      if SignatureNode <> nil
+      then
+        begin
+          {*
+          if BSTNode <> nil
+          then begin
+            Attr := xmlHasProp(BSTNode, PAnsiChar(IdProp) );
+            if Attr <> nil
+            then begin
+              IdVal := xmlGetProp(BSTNode, PAnsiChar(IdProp));
+              xmlAddID(nil, Doc, @(IdVal[1]), Attr);
+            end;
+
+            // simulate X509Certifica node from
+            // hack KeyInfo for verify from BinarySecurityToken
+            KeyInfoNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
+            if KeyInfoNode <> nil then
+              begin
+                xmlUnlinkNode(KeyInfoNode);
+                xmlFreeNode(KeyInfoNode);
+              end;
+
+            KeyInfoNode := xmlSecAddChild(SignatureNode, xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
+            if KeyInfoNode = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['KeyInfoNode']);
+
+            X509Data := xmlSecTmplKeyInfoAddX509Data(KeyInfoNode);
+            if X509Data = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Data']);
+
+            X509Certificate := xmlSecTmplX509DataAddCertificate(X509Data);
+            if X509Certificate = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Certificate']);
+
+            xmlNodeSetContent(X509Certificate, xmlNodeGetContent(BSTNode));
+            xmlSecAddChildNode(X509Data, X509Certificate);
+
+            Node := xmlSecTmplX509DataAddIssuerSerial(x509Data);
+            if (Node <> nil) then
+              begin
+                xmlSecTmplX509IssuerSerialAddIssuerName(Node, '');
+                xmlSecTmplX509IssuerSerialAddSerialNumber(Node, 'ICA - 10374619');
+              end;
+
+            xmlSecAddChildNode(KeyInfoNode, X509Data);
+          end;
+          *}
+
+          {$IFDEF DEBUG}
+//          xmlSaveFile(PAnsiChar('beforeverify.xml'), doc);
+          {$ENDIF}
+
+          DsigCtx := xmlSecDSigCtxCreate(FMngr);
+//          DsigCtx := xmlSecDSigCtxCreate(nil);
+          Assert(DsigCtx <> nil);
+
+          if BSTNode <> nil then
+            begin
+              ms := TMemoryStream.Create;
+              ss := TStringStream.Create('-----BEGIN CERTIFICATE-----' + sLineBreak + xmlNodeGetContent(BSTNode) + sLineBreak + '-----END CERTIFICATE-----' + sLineBreak, TEncoding.ANSI);
+              try
+                ss.SaveToStream(ms);
+                DsigCtx.signKey := xmlSecCryptoAppKeyLoadMemory(
+                  ms.Memory,
+                  ms.Size,
+                  xmlSecKeyDataFormatCertPem,
+                  nil, nil, nil
+                );
+                if DsigCtx.signKey = nil
+                then
+                  raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['Load DsigCtx.signKey from BinarySecurityToken']);
+              finally
+                ms.Free;
+                ss.Free;
+              end;
+            end;
+
+          {$BOOLEVAL OFF}
+          Result := (xmlSecDSigCtxVerify(DsigCtx, SignatureNode) = 0) and (DsigCtx^.status = xmlSecDSigStatusSucceeded)
+        end;
+
+    finally
+      if Doc <> nil
+      then xmlFreeDoc(Doc);
+      if DsigCtx <> nil
+      then xmlSecDSigCtxDestroy(DsigCtx);
+    end;
+end;
+
+initialization
+  EETSignerCount := 0;
+end.
