@@ -1,7 +1,7 @@
 # DelphiEET
 Delphi component for registered sale data messages. http://www.etrzby.cz 
 
-Demo use binary libxml2 and libxmlsec from : ftp://ftp.zlatkovic.com/libxml/64bit/
+Demo need libxml2 and libxmlsec library from : ftp://ftp.zlatkovic.com/libxml/64bit/
 ```
 libcharset-1.dll
 libeay32.dll
