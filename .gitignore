@@ -72,3 +72,9 @@ __recovery/
 /bin/response.xml
 
 *.dproj
+
+!/bin/lib*.dll
+!/bin/zlib*
+!/bin/ssleay32.dll
+!/bin/openssl.exe
+!/bin/xmlsec1.exe
