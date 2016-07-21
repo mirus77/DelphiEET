@@ -21,13 +21,10 @@ xmlsec1.exe (for testing)
 zlib1.dll
 ```
 
-Delphi project Options
+Delphi project Options for demo TestEET.dpr
 
-For using in Windows XP:
 ```
-  Delphi Compiler Options -> Conditional Defines : USE_INDY
-```
-```
+  Delphi Compiler Options -> Conditional Defines : USE_INDY - for using in Windows XP required
   Delphi Compiler Options -> Output Directory: ..\bin
   Delphi Compiler Options -> Search Path: ..\include\soap;$(BDS)\source\soap;..\include\databinding;..\include\eet;..\include\synapse;..\include\szutils;..\include\wsse;..\include\xmlsec
   Delphi Compiler Options -> Unit Output Directory: .\dcu
