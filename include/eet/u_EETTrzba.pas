@@ -19,9 +19,6 @@ type
   private
     FEET: TEETTrzba;
   protected
-    FUseSSL: Boolean;
-    FOriginUrl : string;
-    FPassPhrase: string;
     {$IFDEF USE_INDY}
     FIdCookieManager : TIdCookieManager;
     IdSSLIOHandlerSocketOpenSSL1: TIdSSLIOHandlerSocketOpenSSL;

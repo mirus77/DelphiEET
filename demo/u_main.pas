@@ -41,7 +41,7 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP,  XMLIntf, XMLDoc, u_EETTrzba, UITypes, u_EETSigner, libxml2, libxmlsec;
+  u_EETServiceSOAP,  XMLIntf, XMLDoc, u_EETTrzba, UITypes, u_EETSigner;
 
 {$R *.dfm}
 
