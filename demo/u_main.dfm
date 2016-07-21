@@ -43,6 +43,10 @@ object TestEETForm: TTestEETForm
       TabOrder = 0
       object tsRequest: TTabSheet
         Caption = 'Po'#382'adavek'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object grpTrzba: TGroupBox
           AlignWithMargins = True
           Left = 3
@@ -79,6 +83,10 @@ object TestEETForm: TTestEETForm
       object tsResponse: TTabSheet
         Caption = 'Odpov'#283#271
         ImageIndex = 1
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object grpResponse: TGroupBox
           Left = 0
           Top = 0
