@@ -144,14 +144,13 @@ begin
   EET := TEETTrzba.Create(nil);
   eTrzba := EET.NewTrzba;
   try
-//    EET.URL := 'http://localhost';
-    EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v2';
+    EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
     EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.cer'));
     EET.PFXPassword := 'eet';
-    EET.ReceiveTimeout := 100;
+    EET.ConnectTimeout := 2000;
     EET.Initialize;
 
     eTrzba.Hlavicka.prvni_zaslani := False;
@@ -178,28 +177,36 @@ begin
     eTrzba.Data.zakl_nepodl_dph.DecimalString := DoubleToCastka(3036.00);
 
     Odp := EET.OdeslaniTrzby(eTrzba);
-    if Odp.Potvrzeni <> nil then
+    if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
-        if EET.ValidResponse then
+        if Odp.Potvrzeni <> nil then
           begin
-            if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
-               ShowMessageFmt('OK. FIK : %s', [Odp.Potvrzeni.fik]);
+            if EET.ValidResponse then
+              begin
+                if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
+                   ShowMessageFmt('OK. FIK : %s', [Odp.Potvrzeni.fik]);
+              end
+            else
+              MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
           end
         else
-          MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
+          begin
+            if Odp.Chyba <> nil then
+              begin
+                if Odp.Chyba.Kod <> 0 then
+                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
+                {$IFDEF DEBUG}
+                if Odp.Chyba.Kod = 0 then
+                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
+                {$ENDIF}
+              end
+            end;
       end
     else
       begin
-        if Odp.Chyba <> nil then
-          begin
-            if Odp.Chyba.Kod <> 0 then
-              ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
-            {$IFDEF DEBUG}
-            if Odp.Chyba.Kod = 0 then
-              ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
-            {$ENDIF}
-          end
-        end;
+        if EET.ErrorCode <> 0 then
+          ShowMessageFmt('Chyba : %d - %s', [EET.ErrorCode,EET.ErrorMessage]);
+      end;
   finally
     eTrzba.Free;
     EET.Free;

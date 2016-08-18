@@ -3,7 +3,7 @@ unit u_EETTrzba;
 interface
 
 uses
-  System.SysUtils, System.Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
+  Windows,System.SysUtils, System.Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
   SOAPHTTPTrans, Soap.WebNode, Soap.OpConvertOptions,
   {$IFDEF USE_INDY}
     IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
@@ -28,6 +28,7 @@ type
       SOAPRequest: TStream);
     procedure HTTPRIO_AfterExecute(const MethodName: string;
       SOAPResponse: TStream);
+    function DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -40,9 +41,13 @@ type
     FEETService : EET;
     FOnBeforeSendRequest: TBeforeExecuteEvent;
     FOnAfterSendRequest: TAfterExecuteEvent;
+    FConnectTimeout: Integer;
     FReceiveTimeout: Integer;
     FValidResponse: Boolean;
     FCERStream: TMemoryStream;
+    FSendTimeout: Integer;
+    FErrorCode: Integer;
+    FErrorMessage: string;
   protected
     FPKPData : string;
     IsInitialized: boolean;
@@ -65,8 +70,12 @@ type
     property PFXStream : TMemoryStream read FPFXStream;
     property CERStream : TMemoryStream read FCERStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
-    property ReceiveTimeout : Integer read FReceiveTimeout write FReceiveTimeout default 3000;
+    property ConnectTimeout : Integer read FConnectTimeout write FConnectTimeout;
+    property SendTimeout : Integer read FSendTimeout write FSendTimeout;
+    property ReceiveTimeout : Integer read FReceiveTimeout write FReceiveTimeout;
     property ValidResponse : Boolean read FValidResponse;
+    property ErrorCode : Integer read FErrorCode;
+    property ErrorMessage : string read FErrorMessage;
   end;
 
 implementation
@@ -93,6 +102,9 @@ begin
   FPFXPassword := '';
   FPFXStream := TMemoryStream.Create;
   FCERStream := TMemoryStream.Create;
+  FConnectTimeout := 2000;
+  FSendTimeout := 3000;
+  FReceiveTimeout := 3000;
 end;
 
 destructor TEETTrzba.Destroy;
@@ -108,6 +120,9 @@ function TEETTrzba.GetEETRIO: TEETRIO;
 begin
   Result := TEETRIO.Create(nil);
   Result.EET := self;
+  Result.HTTPWebNode.ConnectTimeout := Self.ConnectTimeout;
+  Result.HTTPWebNode.SendTimeout := Self.SendTimeout;
+  Result.HTTPWebNode.ReceiveTimeout := Self.ReceiveTimeout;
 end;
 
 procedure TEETTrzba.Initialize;
@@ -178,6 +193,10 @@ var
   end;
 begin
   FValidResponse := True;
+  FErrorCode := 0;
+  FErrorMessage := '';
+  Result := nil;
+
   Service := GetEET(False, URL, GetEETRIO);
   Hdr := TEETHeader.Create;
    try
@@ -204,7 +223,15 @@ begin
      FPKPData := FPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
      FPKPData := FPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
 
-     Result := Service.OdeslaniTrzby(parameters); { invoke the service }
+     try
+       Result := Service.OdeslaniTrzby(parameters); { invoke the service }
+     except
+       on E:Exception do
+         begin
+           FErrorCode := -1;
+           FErrorMessage := E.Message;
+         end;
+     end;
    finally
      Hdr.Free;
    end;
@@ -325,9 +352,10 @@ begin
   IdSSLIOHandlerSocketOpenSSL1.SSLOptions.VerifyDepth := 0;
 
   HTTPWebNode.IOHandler := IdSSLIOHandlerSocketOpenSSL1;
+  {$ELSE}
+  HTTPWebNode.GetHTTPReqResp.OnWinInetError := DoOnWinInetError;
   {$ENDIF}
 
-  HTTPWebNode.ReceiveTimeout := 5000;
   HTTPWebNode.WebNodeOptions := [];
 
   HTTPWebNode.OnBeforePost := HTTPWebNode_BeforePost;
@@ -338,6 +366,11 @@ end;
 destructor TEETRIO.Destroy;
 begin
   inherited;
+end;
+
+function TEETRIO.DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
+begin
+  Result := ERROR_SUCCESS;
 end;
 
 procedure TEETRIO.HTTPRIO_AfterExecute(const MethodName: string; SOAPResponse: TStream);
@@ -363,9 +396,9 @@ end;
 
 procedure TEETRIO.HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData: Pointer);
 begin
-  if FEET <> nil then
-    if FEET.ReceiveTimeout <> 0 then
-      AHTTPReqResp.ReceiveTimeout := FEET.ReceiveTimeout;
+{$IFDEF USE_INDY}
+  TIdHTTP(AData).ConnectTimeout := AHTTPReqResp.ConnectTimeout;
+{$ENDIF}
 end;
 
 { TEETHeader }

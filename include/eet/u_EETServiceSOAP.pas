@@ -1,12 +1,12 @@
 // ************************************************************************ //
 // The types declared in this file were generated from data read from the
 // WSDL File described below:
-// WSDL     : L:\Data\owncloud\documentsPPK\EET\verze 2\EETServiceSOAP.wsdl
-//  >Import : L:\Data\owncloud\documentsPPK\EET\verze 2\EETServiceSOAP.wsdl>0
-//  >Import : L:\Data\owncloud\documentsPPK\EET\verze 2\EETXMLSchema.xsd
+// WSDL     : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl
+//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl>0
+//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETXMLSchema.xsd
 // Encoding : UTF-8
 // Version  : 1.0
-// (1. 7. 2016 22:49:47 - - $Rev: 76228 $)
+// (18.08.2016 21:55:20 - - $Rev: 86412 $)
 // ************************************************************************ //
 
 unit u_EETServiceSOAP;
@@ -17,6 +17,7 @@ uses Soap.InvokeRegistry, Soap.SOAPHTTPClient, System.Types, Soap.XSBuiltIns;
 
 const
   IS_OPTN = $0001;
+  IS_UNBD = $0002;
   IS_ATTR = $0010;
   IS_TEXT = $0020;
 
@@ -30,53 +31,75 @@ type
   // typically map to predefined/known XML or Embarcadero types; however, they could also 
   // indicate incorrect WSDL documents that failed to declare or import a schema type.
   // ************************************************************************ //
-  // !:decimal         - "http://www.w3.org/2001/XMLSchema"[Gbl]
-  // !:dateTime        - "http://www.w3.org/2001/XMLSchema"[Gbl]
   // !:int             - "http://www.w3.org/2001/XMLSchema"[Gbl]
   // !:string          - "http://www.w3.org/2001/XMLSchema"[Gbl]
+  // !:decimal         - "http://www.w3.org/2001/XMLSchema"[Gbl]
+  // !:dateTime        - "http://www.w3.org/2001/XMLSchema"[Gbl]
   // !:boolean         - "http://www.w3.org/2001/XMLSchema"[Gbl]
   // !:schema          - "http://www.w3.org/2001/XMLSchema"[Gbl]
 
-  OdpovedHlavickaType  = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[GblCplx] }
-  OdpovedPotvrzeniType = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[GblCplx] }
-  TrzbaHlavickaType    = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[GblCplx] }
-  TrzbaType            = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[Lit][GblCplx] }
-  Trzba                = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[Lit][GblElm] }
-  OdpovedType          = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[Lit][GblCplx] }
-  Odpoved              = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[Lit][GblElm] }
-  TrzbaKontrolniKodyType = class;               { "http://fs.mfcr.cz/eet/schema/v2"[GblCplx] }
-  TrzbaDataType        = class;                 { "http://fs.mfcr.cz/eet/schema/v2"[GblCplx] }
+  OdpovedPotvrzeniType = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
+  OdpovedHlavickaType  = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
+  TrzbaHlavickaType    = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
+  TrzbaType            = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[Lit][GblCplx] }
+  Trzba                = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[Lit][GblElm] }
+  OdpovedType          = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[Lit][GblCplx] }
+  Odpoved              = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[Lit][GblElm] }
+  TrzbaDataType        = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
+  TrzbaKontrolniKodyType = class;               { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
 
   {$SCOPEDENUMS ON}
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  PkpEncodingType = (base64);
-
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  BkpDigestType = (SHA1);
-
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   BkpEncodingType = (base16);
 
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   PkpCipherType = (RSA2048);
 
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   PkpDigestType = (SHA256);
 
-  { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  BkpDigestType = (SHA1);
+
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  PkpEncodingType = (base64);
+
+  { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   RezimType = (_0, _1);
 
   {$SCOPEDENUMS OFF}
 
-  FikType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  BkpType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  dateTime        = class(TXSDateTime) end;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  UUIDType        =  type string;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  KodChybaType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  BkpType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  FikType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  KodVarovType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+
+
+  // ************************************************************************ //
+  // XML       : OdpovedPotvrzeniType, global, <complexType>
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
+  // ************************************************************************ //
+  OdpovedPotvrzeniType = class(TRemotable)
+  private
+    Ffik: FikType;
+    Ftest: Boolean;
+    Ftest_Specified: boolean;
+    procedure Settest(Index: Integer; const ABoolean: Boolean);
+    function  test_Specified(Index: Integer): boolean;
+  published
+    property fik:  FikType  Index (IS_ATTR) read Ffik write Ffik;
+    property test: Boolean  Index (IS_ATTR or IS_OPTN) read Ftest write Settest stored test_Specified;
+  end;
+
+  dateTime        = class(TXSDateTime) end;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  IdProvozType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  CZDICType       =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
+  UUIDType        =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
 
 
   // ************************************************************************ //
   // XML       : OdpovedHlavickaType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // ************************************************************************ //
   OdpovedHlavickaType = class(TRemotable)
   private
@@ -105,30 +128,11 @@ type
     property dat_odmit:   dateTime  Index (IS_ATTR or IS_OPTN) read Fdat_odmit write Setdat_odmit stored dat_odmit_Specified;
   end;
 
-  CZDICType       =  type string;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-
-
-  // ************************************************************************ //
-  // XML       : OdpovedPotvrzeniType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
-  // ************************************************************************ //
-  OdpovedPotvrzeniType = class(TRemotable)
-  private
-    Ffik: FikType;
-    Ftest: Boolean;
-    Ftest_Specified: boolean;
-    procedure Settest(Index: Integer; const ABoolean: Boolean);
-    function  test_Specified(Index: Integer): boolean;
-  published
-    property fik:  FikType  Index (IS_ATTR) read Ffik write Ffik;
-    property test: Boolean  Index (IS_ATTR or IS_OPTN) read Ftest write Settest stored test_Specified;
-  end;
-
 
 
   // ************************************************************************ //
   // XML       : TrzbaHlavickaType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // ************************************************************************ //
   TrzbaHlavickaType = class(TRemotable)
   private
@@ -152,7 +156,7 @@ type
 
   // ************************************************************************ //
   // XML       : TrzbaType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // Serializtn: [xoLiteralParam]
   // Info      : Wrapper
   // ************************************************************************ //
@@ -174,7 +178,7 @@ type
 
   // ************************************************************************ //
   // XML       : Trzba, global, <element>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // Info      : Wrapper
   // ************************************************************************ //
   Trzba = class(TrzbaType)
@@ -182,12 +186,12 @@ type
   published
   end;
 
-  IdProvozType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
+  string_         =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
 
   { ================== WARNING ================== }
-  { WARNING - Attribute - Name:kod, Type:Integer }
+  { WARNING - Attribute - Name:kod, Type:KodChybaType }
   { WARNING - Attribute - Name:test, Type:Boolean }
-  OdpovedChybaType = class(TRemotable)      { "http://fs.mfcr.cz/eet/schema/v2"[GblCplxMxd] }
+  OdpovedChybaType = class(TRemotable)   { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
   private
     Ftest: boolean;
     FZprava: string;
@@ -199,9 +203,16 @@ type
   end;
 
 
+  { ================== WARNING ================== }
+  { WARNING - Attribute - Name:kod_varov, Type:KodVarovType }
+  OdpovedVarovaniType = TXMLData;      { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
+
+  Array_Of_OdpovedVarovaniType = array of OdpovedVarovaniType;   { "http://fs.mfcr.cz/eet/schema/v3"[GblUbnd] }
+
+
   // ************************************************************************ //
   // XML       : OdpovedType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // Serializtn: [xoLiteralParam]
   // Info      : Wrapper
   // ************************************************************************ //
@@ -212,24 +223,29 @@ type
     FPotvrzeni_Specified: boolean;
     FChyba: OdpovedChybaType;
     FChyba_Specified: boolean;
+    FVarovani: Array_Of_OdpovedVarovaniType;
+    FVarovani_Specified: boolean;
     procedure SetPotvrzeni(Index: Integer; const AOdpovedPotvrzeniType: OdpovedPotvrzeniType);
     function  Potvrzeni_Specified(Index: Integer): boolean;
     procedure SetChyba(Index: Integer; const AOdpovedChybaType: OdpovedChybaType);
     function  Chyba_Specified(Index: Integer): boolean;
+    procedure SetVarovani(Index: Integer; const AArray_Of_OdpovedVarovaniType: Array_Of_OdpovedVarovaniType);
+    function  Varovani_Specified(Index: Integer): boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
   published
-    property Hlavicka:  OdpovedHlavickaType   read FHlavicka write FHlavicka;
-    property Potvrzeni: OdpovedPotvrzeniType  Index (IS_OPTN) read FPotvrzeni write SetPotvrzeni stored Potvrzeni_Specified;
-    property Chyba:     OdpovedChybaType      Index (IS_OPTN) read FChyba write SetChyba stored Chyba_Specified;
+    property Hlavicka:  OdpovedHlavickaType           read FHlavicka write FHlavicka;
+    property Potvrzeni: OdpovedPotvrzeniType          Index (IS_OPTN) read FPotvrzeni write SetPotvrzeni stored Potvrzeni_Specified;
+    property Chyba:     OdpovedChybaType              Index (IS_OPTN) read FChyba write SetChyba stored Chyba_Specified;
+    property Varovani:  Array_Of_OdpovedVarovaniType  Index (IS_OPTN or IS_UNBD) read FVarovani write SetVarovani stored Varovani_Specified;
   end;
 
 
 
   // ************************************************************************ //
   // XML       : Odpoved, global, <element>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // Info      : Wrapper
   // ************************************************************************ //
   Odpoved = class(OdpovedType)
@@ -237,63 +253,12 @@ type
   published
   end;
 
-
-  { ================== WARNING ================== }
-  { WARNING - Attribute - Name:digest, Type:BkpDigestType }
-  { WARNING - Attribute - Name:encoding, Type:BkpEncodingType }
-  BkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v2"[GblCplxMxd] }
-  private
-    Fencoding: BkpEncodingType;
-    Fdigest: BkpDigestType;
-    Fvalue: string;
-  published
-    property digest:   BkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
-    property encoding:   BkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
-    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
-  end;
-
-  CastkaType      = class(TXSDecimal) end;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-  string_         =  type string;      { "http://fs.mfcr.cz/eet/schema/v2"[GblSmpl] }
-
-  { ================== WARNING ================== }
-  { WARNING - Attribute - Name:digest, Type:PkpDigestType }
-  { WARNING - Attribute - Name:cipher, Type:PkpCipherType }
-  { WARNING - Attribute - Name:encoding, Type:PkpEncodingType }
-  PkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v2"[GblCplxMxd] }
-  private
-    Fencoding: PkpEncodingType;
-    Fdigest: PkpDigestType;
-    Fcipher: PkpCipherType;
-    Fvalue: string;
-  published
-    property cipher:   PkpCipherType  Index (IS_ATTR) read Fcipher write Fcipher;
-    property digest:   PkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
-    property encoding:   PkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
-    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
-  end;
-
-
-
-  // ************************************************************************ //
-  // XML       : TrzbaKontrolniKodyType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
-  // ************************************************************************ //
-  TrzbaKontrolniKodyType = class(TRemotable)
-  private
-    Fpkp: PkpElementType;
-    Fbkp: BkpElementType;
-  public
-    destructor Destroy; override;
-  published
-    property pkp: PkpElementType  read Fpkp write Fpkp;
-    property bkp: BkpElementType  read Fbkp write Fbkp;
-  end;
-
+  CastkaType      = class(TXSDecimal) end;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
 
 
   // ************************************************************************ //
   // XML       : TrzbaDataType, global, <complexType>
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // ************************************************************************ //
   TrzbaDataType = class(TRemotable)
   private
@@ -387,8 +352,57 @@ type
   end;
 
 
+  { ================== WARNING ================== }
+  { WARNING - Attribute - Name:digest, Type:BkpDigestType }
+  { WARNING - Attribute - Name:encoding, Type:BkpEncodingType }
+  BkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
+  private
+    Fencoding: BkpEncodingType;
+    Fdigest: BkpDigestType;
+    Fvalue: string;
+  published
+    property digest:   BkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
+    property encoding:   BkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
+    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
+  end;
+
+  { ================== WARNING ================== }
+  { WARNING - Attribute - Name:digest, Type:PkpDigestType }
+  { WARNING - Attribute - Name:cipher, Type:PkpCipherType }
+  { WARNING - Attribute - Name:encoding, Type:PkpEncodingType }
+  PkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
+  private
+    Fencoding: PkpEncodingType;
+    Fdigest: PkpDigestType;
+    Fcipher: PkpCipherType;
+    Fvalue: string;
+  published
+    property cipher:   PkpCipherType  Index (IS_ATTR) read Fcipher write Fcipher;
+    property digest:   PkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
+    property encoding:   PkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
+    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
+  end;
+
+
+
   // ************************************************************************ //
-  // Namespace : http://fs.mfcr.cz/eet/schema/v2
+  // XML       : TrzbaKontrolniKodyType, global, <complexType>
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
+  // ************************************************************************ //
+  TrzbaKontrolniKodyType = class(TRemotable)
+  private
+    Fpkp: PkpElementType;
+    Fbkp: BkpElementType;
+  public
+    destructor Destroy; override;
+  published
+    property pkp: PkpElementType  read Fpkp write Fpkp;
+    property bkp: BkpElementType  read Fbkp write Fbkp;
+  end;
+
+
+  // ************************************************************************ //
+  // Namespace : http://fs.mfcr.cz/eet/schema/v3
   // soapAction: http://fs.mfcr.cz/eet/OdeslaniTrzby
   // transport : http://schemas.xmlsoap.org/soap/http
   // style     : document
@@ -396,10 +410,10 @@ type
   // binding   : EETSOAP
   // service   : EETService
   // port      : EETServiceSOAP
-  // URL       : https://pg.eet.cz:443/eet/services/EETServiceSOAP/v2
+  // URL       : https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3
   // ************************************************************************ //
   EET = interface(IInvokable)
-  ['{3C72869B-D2EF-EE25-FF09-1F3AB16DA933}']
+  ['{C30BD370-E8C7-90B1-FB34-6051908DA2FB}']
 
     // Cannot unwrap: 
     //     - Input element wrapper name does not match operation's name
@@ -415,8 +429,8 @@ implementation
 
 function GetEET(UseWSDL: Boolean; Addr: string; HTTPRIO: THTTPRIO): EET;
 const
-  defWSDL = 'L:\Data\owncloud\documentsPPK\EET\verze 2\EETServiceSOAP.wsdl';
-  defURL  = 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v2';
+  defWSDL = 'C:\EET\verze 3\EETServiceSOAP.wsdl';
+  defURL  = 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
   defSvc  = 'EETService';
   defPrt  = 'EETServiceSOAP';
 var
@@ -449,6 +463,17 @@ begin
   end;
 end;
 
+
+procedure OdpovedPotvrzeniType.Settest(Index: Integer; const ABoolean: Boolean);
+begin
+  Ftest := ABoolean;
+  Ftest_Specified := True;
+end;
+
+function OdpovedPotvrzeniType.test_Specified(Index: Integer): boolean;
+begin
+  Result := Ftest_Specified;
+end;
 
 destructor OdpovedHlavickaType.Destroy;
 begin
@@ -501,17 +526,6 @@ begin
   Result := Fdat_odmit_Specified;
 end;
 
-procedure OdpovedPotvrzeniType.Settest(Index: Integer; const ABoolean: Boolean);
-begin
-  Ftest := ABoolean;
-  Ftest_Specified := True;
-end;
-
-function OdpovedPotvrzeniType.test_Specified(Index: Integer): boolean;
-begin
-  Result := Ftest_Specified;
-end;
-
 destructor TrzbaHlavickaType.Destroy;
 begin
   System.SysUtils.FreeAndNil(Fdat_odesl);
@@ -550,7 +564,12 @@ begin
 end;
 
 destructor OdpovedType.Destroy;
+var
+  I: Integer;
 begin
+  for I := 0 to System.Length(FVarovani)-1 do
+    System.SysUtils.FreeAndNil(FVarovani[I]);
+  System.SetLength(FVarovani, 0);
   System.SysUtils.FreeAndNil(FHlavicka);
   System.SysUtils.FreeAndNil(FPotvrzeni);
   System.SysUtils.FreeAndNil(FChyba);
@@ -579,11 +598,15 @@ begin
   Result := FChyba_Specified;
 end;
 
-destructor TrzbaKontrolniKodyType.Destroy;
+procedure OdpovedType.SetVarovani(Index: Integer; const AArray_Of_OdpovedVarovaniType: Array_Of_OdpovedVarovaniType);
 begin
-  System.SysUtils.FreeAndNil(Fpkp);
-  System.SysUtils.FreeAndNil(Fbkp);
-  inherited Destroy;
+  FVarovani := AArray_Of_OdpovedVarovaniType;
+  FVarovani_Specified := True;
+end;
+
+function OdpovedType.Varovani_Specified(Index: Integer): boolean;
+begin
+  Result := FVarovani_Specified;
 end;
 
 destructor TrzbaDataType.Destroy;
@@ -760,41 +783,52 @@ begin
   Result := Fcerp_zuct_Specified;
 end;
 
+destructor TrzbaKontrolniKodyType.Destroy;
+begin
+  System.SysUtils.FreeAndNil(Fpkp);
+  System.SysUtils.FreeAndNil(Fbkp);
+  inherited Destroy;
+end;
+
 initialization
   { EET }
-  InvRegistry.RegisterInterface(TypeInfo(EET), 'http://fs.mfcr.cz/eet/schema/v2', 'UTF-8');
+  InvRegistry.RegisterInterface(TypeInfo(EET), 'http://fs.mfcr.cz/eet/schema/v3', 'UTF-8');
   InvRegistry.RegisterDefaultSOAPAction(TypeInfo(EET), 'http://fs.mfcr.cz/eet/OdeslaniTrzby');
   InvRegistry.RegisterInvokeOptions(TypeInfo(EET), ioDocument);
   InvRegistry.RegisterInvokeOptions(TypeInfo(EET), ioLiteral);
-  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpEncodingType), 'http://fs.mfcr.cz/eet/schema/v2', 'PkpEncodingType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpDigestType), 'http://fs.mfcr.cz/eet/schema/v2', 'BkpDigestType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpEncodingType), 'http://fs.mfcr.cz/eet/schema/v2', 'BkpEncodingType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(FikType), 'http://fs.mfcr.cz/eet/schema/v2', 'FikType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpType), 'http://fs.mfcr.cz/eet/schema/v2', 'BkpType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(dateTime), 'http://fs.mfcr.cz/eet/schema/v2', 'dateTime');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(UUIDType), 'http://fs.mfcr.cz/eet/schema/v2', 'UUIDType');
-  RemClassRegistry.RegisterXSClass(OdpovedHlavickaType, 'http://fs.mfcr.cz/eet/schema/v2', 'OdpovedHlavickaType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(CZDICType), 'http://fs.mfcr.cz/eet/schema/v2', 'CZDICType');
-  RemClassRegistry.RegisterXSClass(OdpovedPotvrzeniType, 'http://fs.mfcr.cz/eet/schema/v2', 'OdpovedPotvrzeniType');
-  RemClassRegistry.RegisterXSClass(TrzbaHlavickaType, 'http://fs.mfcr.cz/eet/schema/v2', 'TrzbaHlavickaType');
-  RemClassRegistry.RegisterXSClass(TrzbaType, 'http://fs.mfcr.cz/eet/schema/v2', 'TrzbaType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpEncodingType), 'http://fs.mfcr.cz/eet/schema/v3', 'BkpEncodingType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(KodChybaType), 'http://fs.mfcr.cz/eet/schema/v3', 'KodChybaType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpType), 'http://fs.mfcr.cz/eet/schema/v3', 'BkpType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(FikType), 'http://fs.mfcr.cz/eet/schema/v3', 'FikType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(KodVarovType), 'http://fs.mfcr.cz/eet/schema/v3', 'KodVarovType');
+  RemClassRegistry.RegisterXSClass(OdpovedPotvrzeniType, 'http://fs.mfcr.cz/eet/schema/v3', 'OdpovedPotvrzeniType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(dateTime), 'http://fs.mfcr.cz/eet/schema/v3', 'dateTime');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(IdProvozType), 'http://fs.mfcr.cz/eet/schema/v3', 'IdProvozType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(CZDICType), 'http://fs.mfcr.cz/eet/schema/v3', 'CZDICType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(UUIDType), 'http://fs.mfcr.cz/eet/schema/v3', 'UUIDType');
+  RemClassRegistry.RegisterXSClass(OdpovedHlavickaType, 'http://fs.mfcr.cz/eet/schema/v3', 'OdpovedHlavickaType');
+  RemClassRegistry.RegisterXSClass(TrzbaHlavickaType, 'http://fs.mfcr.cz/eet/schema/v3', 'TrzbaHlavickaType');
+  RemClassRegistry.RegisterXSClass(TrzbaType, 'http://fs.mfcr.cz/eet/schema/v3', 'TrzbaType');
   RemClassRegistry.RegisterSerializeOptions(TrzbaType, [xoLiteralParam]);
-  RemClassRegistry.RegisterXSClass(Trzba, 'http://fs.mfcr.cz/eet/schema/v2', 'Trzba');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(IdProvozType), 'http://fs.mfcr.cz/eet/schema/v2', 'IdProvozType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(OdpovedChybaType), 'http://fs.mfcr.cz/eet/schema/v2', 'OdpovedChybaType');
-  RemClassRegistry.RegisterXSClass(OdpovedType, 'http://fs.mfcr.cz/eet/schema/v2', 'OdpovedType');
+  RemClassRegistry.RegisterXSClass(Trzba, 'http://fs.mfcr.cz/eet/schema/v3', 'Trzba');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(string_), 'http://fs.mfcr.cz/eet/schema/v3', 'string_', 'string');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpCipherType), 'http://fs.mfcr.cz/eet/schema/v3', 'PkpCipherType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpDigestType), 'http://fs.mfcr.cz/eet/schema/v3', 'PkpDigestType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpDigestType), 'http://fs.mfcr.cz/eet/schema/v3', 'BkpDigestType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpEncodingType), 'http://fs.mfcr.cz/eet/schema/v3', 'PkpEncodingType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(OdpovedChybaType), 'http://fs.mfcr.cz/eet/schema/v3', 'OdpovedChybaType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(OdpovedVarovaniType), 'http://fs.mfcr.cz/eet/schema/v3', 'OdpovedVarovaniType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(Array_Of_OdpovedVarovaniType), 'http://fs.mfcr.cz/eet/schema/v3', 'Array_Of_OdpovedVarovaniType');
+  RemClassRegistry.RegisterXSClass(OdpovedType, 'http://fs.mfcr.cz/eet/schema/v3', 'OdpovedType');
   RemClassRegistry.RegisterSerializeOptions(OdpovedType, [xoLiteralParam]);
-  RemClassRegistry.RegisterXSClass(Odpoved, 'http://fs.mfcr.cz/eet/schema/v2', 'Odpoved');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpElementType), 'http://fs.mfcr.cz/eet/schema/v2', 'BkpElementType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpCipherType), 'http://fs.mfcr.cz/eet/schema/v2', 'PkpCipherType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpDigestType), 'http://fs.mfcr.cz/eet/schema/v2', 'PkpDigestType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(CastkaType), 'http://fs.mfcr.cz/eet/schema/v2', 'CastkaType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(string_), 'http://fs.mfcr.cz/eet/schema/v2', 'string_', 'string');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpElementType), 'http://fs.mfcr.cz/eet/schema/v2', 'PkpElementType');
-  RemClassRegistry.RegisterXSClass(TrzbaKontrolniKodyType, 'http://fs.mfcr.cz/eet/schema/v2', 'TrzbaKontrolniKodyType');
-  RemClassRegistry.RegisterXSInfo(TypeInfo(RezimType), 'http://fs.mfcr.cz/eet/schema/v2', 'RezimType');
+  RemClassRegistry.RegisterXSClass(Odpoved, 'http://fs.mfcr.cz/eet/schema/v3', 'Odpoved');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(RezimType), 'http://fs.mfcr.cz/eet/schema/v3', 'RezimType');
   RemClassRegistry.RegisterExternalPropName(TypeInfo(RezimType), '_0', '0');
   RemClassRegistry.RegisterExternalPropName(TypeInfo(RezimType), '_1', '1');
-  RemClassRegistry.RegisterXSClass(TrzbaDataType, 'http://fs.mfcr.cz/eet/schema/v2', 'TrzbaDataType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(CastkaType), 'http://fs.mfcr.cz/eet/schema/v3', 'CastkaType');
+  RemClassRegistry.RegisterXSClass(TrzbaDataType, 'http://fs.mfcr.cz/eet/schema/v3', 'TrzbaDataType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(BkpElementType), 'http://fs.mfcr.cz/eet/schema/v3', 'BkpElementType');
+  RemClassRegistry.RegisterXSInfo(TypeInfo(PkpElementType), 'http://fs.mfcr.cz/eet/schema/v3', 'PkpElementType');
+  RemClassRegistry.RegisterXSClass(TrzbaKontrolniKodyType, 'http://fs.mfcr.cz/eet/schema/v3', 'TrzbaKontrolniKodyType');
 
 end.
