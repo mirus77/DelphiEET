@@ -1,9 +1,9 @@
 // ************************************************************************ //
 // The types declared in this file were generated from data read from the
 // WSDL File described below:
-// WSDL     : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl
-//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl>0
-//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETXMLSchema.xsd
+// WSDL     : C:\EET\verze 3\EETServiceSOAP.wsdl
+//  >Import : C:\EET\verze 3\EETServiceSOAP.wsdl>0
+//  >Import : C:\EET\verze 3\EETXMLSchema.xsd
 // Encoding : UTF-8
 // Version  : 1.0
 // (18.08.2016 21:55:20 - - $Rev: 86412 $)
