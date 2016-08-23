@@ -64,6 +64,7 @@ type
     procedure Initialize;
     function NewTrzba : Trzba;
     function OdeslaniTrzby(const parameters: Trzba): Odpoved;
+    function HasVarovani(Odpoved : OdpovedType) : Boolean;
     property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
     property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
   published
@@ -123,6 +124,13 @@ begin
   Result.HTTPWebNode.ConnectTimeout := Self.ConnectTimeout;
   Result.HTTPWebNode.SendTimeout := Self.SendTimeout;
   Result.HTTPWebNode.ReceiveTimeout := Self.ReceiveTimeout;
+end;
+
+function TEETTrzba.HasVarovani(Odpoved: OdpovedType): Boolean;
+begin
+  Result := False;
+  if Odpoved = nil then exit;
+  Result := Length(Odpoved.Varovani) > 0;
 end;
 
 procedure TEETTrzba.Initialize;
@@ -211,8 +219,8 @@ begin
      if parameters.KontrolniKody.pkp = nil then parameters.KontrolniKody.pkp := PkpElementType.Create;
      if parameters.KontrolniKody.bkp = nil then parameters.KontrolniKody.bkp := BkpElementType.Create;
 
-     parameters.KontrolniKody.pkp.Value := '';
-     parameters.KontrolniKody.bkp.Value := '';
+     parameters.KontrolniKody.pkp.Text := '';
+     parameters.KontrolniKody.bkp.Text := '';
 
      // source data for PKP
      FPKPData := '';

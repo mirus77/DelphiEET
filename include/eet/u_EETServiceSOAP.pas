@@ -1,12 +1,12 @@
 // ************************************************************************ //
 // The types declared in this file were generated from data read from the
 // WSDL File described below:
-// WSDL     : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl
-//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETServiceSOAP.wsdl>0
-//  >Import : C:\Users\kundela\ownCloud\documentsPPK\EET\verze 3\EETXMLSchema.xsd
+// WSDL     : C:\EET\verze 3\EETServiceSOAP.wsdl
+//  >Import : C:\EET\verze 3\EETServiceSOAP.wsdl>0
+//  >Import : C:\EET\verze 3\EETXMLSchema.xsd
 // Encoding : UTF-8
 // Version  : 1.0
-// (18.08.2016 21:55:20 - - $Rev: 86412 $)
+// (23.08.2016 21:35:06 - - $Rev: 86412 $)
 // ************************************************************************ //
 
 unit u_EETServiceSOAP;
@@ -19,7 +19,7 @@ const
   IS_OPTN = $0001;
   IS_UNBD = $0002;
   IS_ATTR = $0010;
-  IS_TEXT = $0020;
+  IS_TEXT = $0020; // custom added
 
 
 type
@@ -74,6 +74,8 @@ type
   FikType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   KodVarovType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
 
+
+{$I EETServiceSOAPTypes.inc}  // custom added
 
   // ************************************************************************ //
   // XML       : OdpovedPotvrzeniType, global, <complexType>
@@ -191,21 +193,14 @@ type
   { ================== WARNING ================== }
   { WARNING - Attribute - Name:kod, Type:KodChybaType }
   { WARNING - Attribute - Name:test, Type:Boolean }
-  OdpovedChybaType = class(TRemotable)   { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
-  private
-    Ftest: boolean;
-    FZprava: string;
-    Fkod: integer;
-  published
-    property kod:   integer  Index (IS_ATTR) read Fkod write Fkod;
-    property test:   boolean  Index (IS_ATTR) read Ftest write Ftest;
-    property Zprava:   string  Index (IS_TEXT) read FZprava write FZprava;
-  end;
+  // custom removed
+//  OdpovedChybaType = TXMLData;      { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
 
 
   { ================== WARNING ================== }
   { WARNING - Attribute - Name:kod_varov, Type:KodVarovType }
-  OdpovedVarovaniType = TXMLData;      { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
+  // custom removed
+//  OdpovedVarovaniType = TXMLData;      { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
 
   Array_Of_OdpovedVarovaniType = array of OdpovedVarovaniType;   { "http://fs.mfcr.cz/eet/schema/v3"[GblUbnd] }
 
@@ -355,33 +350,14 @@ type
   { ================== WARNING ================== }
   { WARNING - Attribute - Name:digest, Type:BkpDigestType }
   { WARNING - Attribute - Name:encoding, Type:BkpEncodingType }
-  BkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
-  private
-    Fencoding: BkpEncodingType;
-    Fdigest: BkpDigestType;
-    Fvalue: string;
-  published
-    property digest:   BkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
-    property encoding:   BkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
-    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
-  end;
+//  BkpElementType  = TXMLData;       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
+
 
   { ================== WARNING ================== }
   { WARNING - Attribute - Name:digest, Type:PkpDigestType }
   { WARNING - Attribute - Name:cipher, Type:PkpCipherType }
   { WARNING - Attribute - Name:encoding, Type:PkpEncodingType }
-  PkpElementType  = class(TRemotable)       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
-  private
-    Fencoding: PkpEncodingType;
-    Fdigest: PkpDigestType;
-    Fcipher: PkpCipherType;
-    Fvalue: string;
-  published
-    property cipher:   PkpCipherType  Index (IS_ATTR) read Fcipher write Fcipher;
-    property digest:   PkpDigestType  Index (IS_ATTR) read Fdigest write Fdigest;
-    property encoding:   PkpEncodingType  Index (IS_ATTR) read Fencoding write Fencoding;
-    property Value:   string  Index (IS_TEXT) read Fvalue write Fvalue;
-  end;
+//  PkpElementType  = TXMLData;       { "http://fs.mfcr.cz/eet/schema/v3"[GblCplxMxd] }
 
 
 
