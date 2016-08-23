@@ -134,6 +134,8 @@ var
   Odp : Odpoved;
   eTrzba : Trzba;
   EET : TEETTrzba;
+  Lst : TStringList;
+  I: Integer;
 
   function DoubleToCastka(Value : Double) : String;
   begin
@@ -183,8 +185,23 @@ begin
           begin
             if EET.ValidResponse then
               begin
-                if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
-                   ShowMessageFmt('OK. FIK : %s', [Odp.Potvrzeni.fik]);
+                Lst := TStringList.Create;
+                try
+                  if EET.HasVarovani(Odp) then
+                    begin
+                      Lst.Add('Varovaní : ');
+                      for I := 0 to Length(Odp.Varovani) - 1 do
+                        Lst.Add(Format('%s - kód : %d', [Odp.Varovani[I].Text, Odp.Varovani[I].kod_varov]));
+                    end;
+                  if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
+                    Lst.Add(Format('FIK : %s', [Odp.Potvrzeni.fik]));
+                  if EET.HasVarovani(Odp) then
+                    MessageDlg(Lst.Text, mtWarning, [mbOK], 0)
+                  else
+                    MessageDlg(Lst.Text, mtInformation, [mbOK], 0)
+                finally
+                  Lst.Free;
+                end;
               end
             else
               MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
@@ -194,10 +211,10 @@ begin
             if Odp.Chyba <> nil then
               begin
                 if Odp.Chyba.Kod <> 0 then
-                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
+                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Text]);
                 {$IFDEF DEBUG}
                 if Odp.Chyba.Kod = 0 then
-                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Zprava]);
+                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Text]);
                 {$ENDIF}
               end
             end;
