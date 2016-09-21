@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, Soap.XSBuiltIns,
-  Vcl.ExtCtrls, Vcl.ComCtrls;
+  Vcl.ExtCtrls, {$IFDEF USE_INDY} IdSSLOpenSSL, {$ENDIF} Vcl.ComCtrls;
 
 type
   TTestEETForm = class(TForm)
@@ -31,6 +31,9 @@ type
   private
     procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
+    {$IFDEF USE_INDY}
+    function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
+    {$ENDIF}
   public
     procedure DoOdeslatTrzba;
   end;
@@ -41,7 +44,7 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP,  XMLIntf, XMLDoc, u_EETTrzba, UITypes, u_EETSigner;
+  u_EETServiceSOAP, XMLIntf, XMLDoc, u_EETTrzba, UITypes, u_EETSigner;
 
 {$R *.dfm}
 
@@ -149,6 +152,8 @@ begin
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
+//    EET.OnVerifyPeer := VerifyPeer;
+    EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
     EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.cer'));
     EET.PFXPassword := 'eet';
@@ -243,4 +248,10 @@ begin
     synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
 end;
 
+{$IFDEF USE_INDY}
+function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
+begin
+  Result := AOk;
+end;
+{$ENDIF}
 end.

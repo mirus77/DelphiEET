@@ -29,6 +29,9 @@ type
     procedure HTTPRIO_AfterExecute(const MethodName: string;
       SOAPResponse: TStream);
     function DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
+    {$IFDEF USE_INDY}
+    function DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
+    {$ENDIF}
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -48,6 +51,8 @@ type
     FSendTimeout: Integer;
     FErrorCode: Integer;
     FErrorMessage: string;
+    FOnVerifyPeer: TVerifyPeerEvent;
+    FRootCertFile: string;
   protected
     FPKPData : string;
     IsInitialized: boolean;
@@ -65,18 +70,22 @@ type
     function NewTrzba : Trzba;
     function OdeslaniTrzby(const parameters: Trzba): Odpoved;
     function HasVarovani(Odpoved : OdpovedType) : Boolean;
-    property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
-    property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
   published
     property PFXStream : TMemoryStream read FPFXStream;
     property CERStream : TMemoryStream read FCERStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
+    property RootCertFile : string read FRootCertFile write FRootCertFile;
     property ConnectTimeout : Integer read FConnectTimeout write FConnectTimeout;
     property SendTimeout : Integer read FSendTimeout write FSendTimeout;
     property ReceiveTimeout : Integer read FReceiveTimeout write FReceiveTimeout;
     property ValidResponse : Boolean read FValidResponse;
     property ErrorCode : Integer read FErrorCode;
     property ErrorMessage : string read FErrorMessage;
+    property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
+    property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
+    {$IFDEF USE_INDY}
+    property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
+    {$ENDIF}
   end;
 
 implementation
@@ -381,6 +390,16 @@ begin
   Result := ERROR_SUCCESS;
 end;
 
+{$IFDEF USE_INDY}
+function TEETRIO.DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth,
+  AError: Integer): Boolean;
+begin
+  Result := AOk;
+  if Assigned(FEET) then
+      if Assigned(FEET.OnVerifyPeer) then Result := FEET.OnVerifyPeer(Certificate, AOk, ADepth, AError);
+end;
+{$ENDIF}
+
 procedure TEETRIO.HTTPRIO_AfterExecute(const MethodName: string; SOAPResponse: TStream);
 begin
   SOAPResponse.Position:=0;
@@ -406,6 +425,15 @@ procedure TEETRIO.HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData
 begin
 {$IFDEF USE_INDY}
   TIdHTTP(AData).ConnectTimeout := AHTTPReqResp.ConnectTimeout;
+  if TIdHTTP(AData).IOHandler is TIdSSLIOHandlerSocketOpenSSL then
+    if Assigned(FEET) then
+      if FEET.RootCertFile <> '' then
+        begin
+          TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.RootCertFile := FEET.RootCertFile;
+          TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.VerifyMode := [sslvrfPeer];
+          TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.VerifyDepth := 2;
+          TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).OnVerifyPeer := DoVerifyPeer;
+        end;
 {$ENDIF}
 end;
 
