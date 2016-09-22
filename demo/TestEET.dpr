@@ -11,7 +11,7 @@ program TestEET;
 
   (for other)
   Delphi Compiler Options -> Output Directory: ..\bin
-  Delphi Compiler Options -> Search Path: ..\include\soap;$(BDS)\source\soap;..\include\databinding;..\include\eet;..\include\synapse;..\include\szutils;..\include\wsse;..\include\xmlsec
+  Delphi Compiler Options -> Search Path: ..\include\soap;$(BDS)\source\soap;..\include\databinding;..\include\eet;..\include\synapse;..\include\szutils;..\include\xmlsec
   Delphi Compiler Options -> Unit Output Directory: .\dcu
 
 *}

@@ -466,7 +466,7 @@ begin
     BodyNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeBody), xmlCharPtr(xmlSecSoap11Ns));
     Assert(BodyNode <> nil);
 
-    RegisterID(BodyNode, 'Id'); // kvuli node:Reference failed zaregostrovat hodnotu wsu:Id jako Id
+    RegisterID(BodyNode, 'Id'); // kvuli node:Reference failed zaregistrovat hodnotu wsu:Id jako Id
 
     DSigCtx.keyInfoWriteCtx.base64LineSize := 0;
 

@@ -9,7 +9,7 @@
 {                                                                                                              }
 {**************************************************************************************************************}
 
-unit wsse;
+unit u_wsse;
 
 interface
 
@@ -318,7 +318,7 @@ implementation
 
 { Global Functions }
 
-uses WSSE_utils;
+uses u_WSSE_utils;
 
 function GetUsernameToken(Doc: IXMLDocument): IXMLUsernameTokenType;
 begin

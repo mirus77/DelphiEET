@@ -90,7 +90,7 @@ type
 
 implementation
 
-uses StrUtils, wsse, wsse_utils, u_xmldsigcoreschema, synacode, SZCodeBaseX, Soap.SOAPEnv, Soap.SOAPConst, DateUtils, TimeSpan;
+uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, synacode, SZCodeBaseX, Soap.SOAPEnv, Soap.SOAPConst, DateUtils, TimeSpan;
 
 type
   TEETHeader = class(TSOAPHeader)
@@ -447,7 +447,7 @@ var
   SigReference : IXMLReferenceType;
   SigTransForm : IXMLTransformType;
   SecTokenReference : IXMLSecurityTokenReferenceType;
-  SecReference : wsse.IXMLReferenceType;
+  SecReference : u_wsse.IXMLReferenceType;
 
 begin
   // Security
