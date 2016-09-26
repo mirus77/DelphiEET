@@ -1,5 +1,5 @@
 unit u_EETTrzba;
-{.$DEFINE USE_INDY}
+
 interface
 
 uses
@@ -90,7 +90,7 @@ type
 
 implementation
 
-uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, synacode, SZCodeBaseX, Soap.SOAPEnv, Soap.SOAPConst, DateUtils, TimeSpan;
+uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, synacode, SZCodeBaseX, Soap.SOAPConst, DateUtils, TimeSpan;
 
 type
   TEETHeader = class(TSOAPHeader)
@@ -287,10 +287,10 @@ begin
   xmlDoc := NewXMLDocument;
   xmlDoc.Options  := [];
   xmlDoc.LoadFromStream(SOAPRequest as TMemoryStream);
-  iNode :=  xmlDoc.ChildNodes.FindNode(MySSoapNameSpacePre + ':Envelope');
+  iNode :=  xmlDoc.ChildNodes.FindNode(SSoapNameSpacePre + ':Envelope');
   if iNode <> nil then
     begin
-      iNode := iNode.ChildNodes.FindNode(MySSoapNameSpacePre + ':Body');
+      iNode := iNode.ChildNodes.FindNode(SSoapNameSpacePre + ':Body');
       if iNode <> nil then
         begin
           iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
@@ -322,7 +322,7 @@ begin
             end;
         end;
     end;
-  iNode :=  xmlDoc.ChildNodes.FindNode(MySSoapNameSpacePre + ':Envelope');
+  iNode :=  xmlDoc.ChildNodes.FindNode(SSoapNameSpacePre + ':Envelope');
   if iNode <> nil then
     begin
       iNode := iNode.ChildNodes.FindNode( SSoapNameSpacePre + ':Header');

@@ -80,10 +80,6 @@ object TestEETForm: TTestEETForm
       object tsResponse: TTabSheet
         Caption = 'Odpov'#283#271
         ImageIndex = 1
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object grpResponse: TGroupBox
           Left = 0
           Top = 0
@@ -142,7 +138,7 @@ object TestEETForm: TTestEETForm
     Top = 39
     Width = 208
     Height = 25
-    Caption = 'Form'#225'tovat XML po'#382'adavku'
+    Caption = 'Form'#225'tovat XML po'#382'adavek'
     TabOrder = 4
     OnClick = btnFormatRequestClick
   end

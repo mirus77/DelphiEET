@@ -56,7 +56,7 @@ uses
 
 const
   PFXCERT_KEYNAME:PAnsiChar   = 'p';
-  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v2';
+  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
 
 var
   EETSignerCount: Integer;
@@ -535,57 +535,11 @@ begin
       if SignatureNode <> nil
       then
         begin
-          {*
-          if BSTNode <> nil
-          then begin
-            Attr := xmlHasProp(BSTNode, PAnsiChar(IdProp) );
-            if Attr <> nil
-            then begin
-              IdVal := xmlGetProp(BSTNode, PAnsiChar(IdProp));
-              xmlAddID(nil, Doc, @(IdVal[1]), Attr);
-            end;
-
-            // simulate X509Certifica node from
-            // hack KeyInfo for verify from BinarySecurityToken
-            KeyInfoNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
-            if KeyInfoNode <> nil then
-              begin
-                xmlUnlinkNode(KeyInfoNode);
-                xmlFreeNode(KeyInfoNode);
-              end;
-
-            KeyInfoNode := xmlSecAddChild(SignatureNode, xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
-            if KeyInfoNode = nil
-            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['KeyInfoNode']);
-
-            X509Data := xmlSecTmplKeyInfoAddX509Data(KeyInfoNode);
-            if X509Data = nil
-            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Data']);
-
-            X509Certificate := xmlSecTmplX509DataAddCertificate(X509Data);
-            if X509Certificate = nil
-            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Certificate']);
-
-            xmlNodeSetContent(X509Certificate, xmlNodeGetContent(BSTNode));
-            xmlSecAddChildNode(X509Data, X509Certificate);
-
-            Node := xmlSecTmplX509DataAddIssuerSerial(x509Data);
-            if (Node <> nil) then
-              begin
-                xmlSecTmplX509IssuerSerialAddIssuerName(Node, '');
-                xmlSecTmplX509IssuerSerialAddSerialNumber(Node, 'ICA - 10374619');
-              end;
-
-            xmlSecAddChildNode(KeyInfoNode, X509Data);
-          end;
-          *}
-
           {$IFDEF DEBUG}
 //          xmlSaveFile(PAnsiChar('beforeverify.xml'), doc);
           {$ENDIF}
 
           DsigCtx := xmlSecDSigCtxCreate(FMngr);
-//          DsigCtx := xmlSecDSigCtxCreate(nil);
           Assert(DsigCtx <> nil);
 
           if BSTNode <> nil then
