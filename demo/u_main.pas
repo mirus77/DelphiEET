@@ -230,6 +230,7 @@ begin
           ShowMessageFmt('Chyba : %d - %s', [EET.ErrorCode,EET.ErrorMessage]);
       end;
   finally
+    if Odp <> nil then FreeAndNil(Odp);    
     eTrzba.Free;
     EET.Free;
   end;
