@@ -51,7 +51,9 @@ type
     FSendTimeout: Integer;
     FErrorCode: Integer;
     FErrorMessage: string;
+    {$IFDEF USE_INDY}
     FOnVerifyPeer: TVerifyPeerEvent;
+    {$ENDIF}
     FRootCertFile: string;
   protected
     FPKPData : string;
