@@ -15,6 +15,20 @@ object TestEETForm: TTestEETForm
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
+  object lblKeyValidFrom: TLabel
+    Left = 560
+    Top = 13
+    Width = 74
+    Height = 13
+    Caption = 'lblKeyValidFrom'
+  end
+  object lblKeyValidTo: TLabel
+    Left = 560
+    Top = 44
+    Width = 62
+    Height = 13
+    Caption = 'lblKeyValidTo'
+  end
   object btnOdeslat: TButton
     Left = 8
     Top = 8

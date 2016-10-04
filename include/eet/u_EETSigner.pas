@@ -5,6 +5,12 @@ interface
 uses Classes, libxml2, libxmlsec, SysUtils;
 
 Type
+  TEETSignerKeyInfo = record
+    Name : string;
+    notValidBefore : TDateTime;
+    notValidAfter : TDateTime;
+  end;
+
   TEETSigner = class(TComponent)
   private
     FCertPassword: AnsiString;
@@ -13,11 +19,13 @@ Type
     FCERStream: TMemoryStream; // stream s overovacim (CER)
     FMngr: xmlSecKeysMngrPtr;
     FVerifyCertIncluded: Boolean;
+    FPrivKeyInfo: TEETSignerKeyInfo;
     procedure InitXMLSec;
     procedure ShutDownXMLSec;
     procedure SetActive(const Value: Boolean);
     procedure CheckActive;
     procedure CheckInactive;
+    procedure ReadPrivKeyInfo;
   public
     {:Nacita klice}
     property Active: Boolean read FActive write SetActive;
@@ -47,12 +55,14 @@ Type
       const SignedNodeName: UTF8String = ''; const IdProp: UTF8String = 'wsu:Id'): boolean;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
+  published
+    property PrivKeyInfo : TEETSignerKeyInfo read FPrivKeyInfo;
 end;
 
 implementation
 
 uses
-  u_EETSignerExceptions, StrUtils;
+  u_EETSignerExceptions, StrUtils, System.DateUtils, libxmlsec_openssl, libeay32;
 
 const
   PFXCERT_KEYNAME:PAnsiChar   = 'p';
@@ -90,6 +100,9 @@ begin
   FMngr := nil;
   FActive := False;
   FVerifyCertIncluded := False;
+  FPrivKeyInfo.Name := '';
+  FPrivKeyInfo.notValidBefore := 0;
+  FPrivKeyInfo.notValidAfter := 0;
 end;
 
 destructor TEETSigner.Destroy;
@@ -228,6 +241,53 @@ begin
   FCERStream.LoadFromStream(CerStream);
 end;
 
+procedure TEETSigner.ReadPrivKeyInfo;
+var
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  secKey: xmlSecKeyPtr;
+  ItemCount, I : Integer;
+  DataItem : xmlSecKeyDataPtr;
+  x509cert : pX509;
+  a_time : TDateTime;
+begin
+  CheckActive;
+
+  keyInfoCtx := nil;
+  secKey := nil;
+
+  try
+    keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+    if keyInfoCtx = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyInfoCtxCreate']);
+
+    secKey :=  xmlSecKeysMngrFindKey(FMngr, PFXCERT_KEYNAME, keyInfoCtx);
+    if secKey = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeysMngrFindKey']);
+
+        // read PrivKeyInfo
+        ItemCount := xmlSecPtrListGetSize(secKey.dataList);
+        for I := 0 to ItemCount - 1 do
+          begin
+            DataItem := xmlSecPtrListGetItem(secKey.dataList, I);
+             if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
+               begin
+                 x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
+                 if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
+                   FPrivKeyInfo.notValidBefore :=a_time;
+                 if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
+                   FPrivKeyInfo.notValidAfter := a_time;
+               end;
+          end;
+
+        FPrivKeyInfo.Name := String(secKey.name);
+  finally
+    if keyInfoCtx <> nil
+    then xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil
+    then xmlSecKeyDestroy(secKey);
+  end;
+end;
+
 procedure TEETSigner.SetActive(const Value: Boolean);
 var
   Key: xmlSecKeyPtr;
@@ -263,6 +323,10 @@ begin
       {$BOOLEVAL OFF}
       if FPFXStream.Size > 0
       then begin
+        FPrivKeyInfo.Name := '';
+        FPrivKeyInfo.notValidBefore := 0;
+        FPrivKeyInfo.notValidAfter := 0;
+
         FMngr := xmlSecKeysMngrCreate();
         if (FMngr = nil) or (xmlSecCryptoAppDefaultKeysMngrInit(FMngr) <> 0)
         then raise EEETSignerException.Create(sSignerKeyMngrCreateFail);
@@ -316,6 +380,8 @@ begin
       if xmlSecCryptoAppDefaultKeysMngrSave(FMngr,@keysfilename[1],$FFFF) < 0 then
          raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
       {$ENDIF}
+
+      ReadPrivKeyInfo;
     except
       FActive := False;
       FVerifyCertIncluded := False;

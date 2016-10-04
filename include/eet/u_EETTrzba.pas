@@ -85,6 +85,7 @@ type
     property ErrorMessage : string read FErrorMessage;
     property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
     property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
+    property Signer : TEETSigner read FSigner;
     {$IFDEF USE_INDY}
     property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
     {$ENDIF}
@@ -150,6 +151,15 @@ begin
 
   if URL='' then
       raise Exception.Create('SOAP URL není vyplnìna !!!');
+
+  if not FSigner.Active then
+    begin
+      if FPFXStream.Size > 0 then
+        FSigner.LoadPFXCertFromStream(FPFXStream,AnsiString(FPFXPassword));
+      if FPFXStream.Size > 0 then
+        FSigner.LoadVerifyCertFromStream(FCERStream);
+      FSigner.Active := True;
+    end;
 
   IsInitialized:=true;
 end;

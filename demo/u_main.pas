@@ -22,6 +22,8 @@ type
     tsResponse: TTabSheet;
     btnFormatOdpoved: TButton;
     btnFormatRequest: TButton;
+    lblKeyValidFrom: TLabel;
+    lblKeyValidTo: TLabel;
     procedure btnOdeslatClick(Sender: TObject);
     procedure btnVerifyResponseClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -160,6 +162,9 @@ begin
     EET.ConnectTimeout := 2000;
     EET.Initialize;
 
+    lblKeyValidFrom.Caption := 'Platnost klíèe od :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
+    lblKeyValidTo.Caption := 'Platnost klíèe do :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
+
     eTrzba.Hlavicka.prvni_zaslani := False;
 //    eTrzba.Hlavicka.overeni := True;
 
@@ -238,6 +243,9 @@ end;
 
 procedure TTestEETForm.FormCreate(Sender: TObject);
 begin
+  lblKeyValidFrom.Caption := 'Platnost klíèe od :';
+  lblKeyValidTo.Caption := 'Platnost klíèe do :';
+
   pgcDebug.ActivePage := tsRequest;
 end;
 
