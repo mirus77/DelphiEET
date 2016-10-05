@@ -56,7 +56,6 @@ type
     {$ENDIF}
     FRootCertFile: string;
   protected
-    FPKPData : string;
     IsInitialized: boolean;
     FSigner : TEETSigner;
     FPFXStream : TMemoryStream;
@@ -203,6 +202,10 @@ function TEETTrzba.OdeslaniTrzby(const parameters: Trzba): Odpoved;
 var
   Service : EET;
   Hdr : TEETHeader;
+  buf: AnsiString;
+  I : integer;
+  sPKPData : string;
+
   function DateTimeToXMLTime(Value: TDateTime): string;
   const
     Neg: array[Boolean] of string=  ('+', '-');
@@ -220,6 +223,20 @@ var
                                          Abs(Bias) mod MinsPerHour]);
     end
   end;
+
+  function FormatBKP(Value : string): string;
+  begin
+    Result := '';
+    I := 1;
+    while I <= Length(Value) do
+      begin
+        Result := Result + Value[I];
+        if (I mod 8 = 0) and (I < Length(Value)) then
+          Result := Result + '-';
+        Inc(I);
+      end;
+  end;
+
 begin
   FValidResponse := True;
   FErrorCode := 0;
@@ -244,13 +261,19 @@ begin
      parameters.KontrolniKody.bkp.Text := '';
 
      // source data for PKP
-     FPKPData := '';
-     FPKPData := parameters.Data.dic_popl;
-     FPKPData := FPKPData + '|' + IntToStr(parameters.Data.id_provoz);
-     FPKPData := FPKPData + '|' + parameters.Data.id_pokl;
-     FPKPData := FPKPData + '|' + parameters.Data.porad_cis;
-     FPKPData := FPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
-     FPKPData := FPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
+     sPKPData := '';
+     sPKPData := parameters.Data.dic_popl;
+     sPKPData := sPKPData + '|' + IntToStr(parameters.Data.id_provoz);
+     sPKPData := sPKPData + '|' + parameters.Data.id_pokl;
+     sPKPData := sPKPData + '|' + parameters.Data.porad_cis;
+     sPKPData := sPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
+     sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
+
+     // generovat PKP
+     buf := FSigner.SignString(sPKPData);
+     parameters.KontrolniKody.pkp.Text := string(EncodeBase64(buf));
+     // generovat BKP z puvodniho cisteho podpisu retezce
+     parameters.KontrolniKody.bkp.Text := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
 
      try
        Result := Service.OdeslaniTrzby(parameters); { invoke the service }
@@ -270,22 +293,6 @@ procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
 var
   xmlDoc : IXMLDocument;
   iNode : IXMLNode;
-  buf: AnsiString;
-  BKPCode : string;
-  S : string;
-  I : integer;
-  function FormatBKP(Value : string): string;
-  begin
-    Result := '';
-    I := 1;
-    while I <= Length(Value) do
-      begin
-        Result := Result + Value[I];
-        if (I mod 8 = 0) and (I < Length(Value)) then
-          Result := Result + '-';
-        Inc(I);
-      end;
-  end;
 begin
   if not FSigner.Active then
     begin
@@ -307,31 +314,6 @@ begin
         begin
           iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
           iNode.Attributes['wsu:Id'] := 'id-TheBody';
-          iNode := iNode.ChildNodes.FindNode('Trzba', '');
-          if (iNode <> nil) and (FPKPData <> '') then
-            begin
-              iNode := iNode.ChildNodes.FindNode('KontrolniKody', '');
-              if (iNode <> nil) then
-                begin
-                  BKPCode := '';
-                  iNode := iNode.ChildNodes.FindNode('pkp', '');
-                  if iNode <> nil then
-                    begin
-                      buf := FSigner.SignString(FPKPData);
-                      S := string(EncodeBase64(buf));
-                      iNode.Text := S;
-
-                      // generovat BKP z puvodniho cisteho podpisu retezce
-                      BKPCode :=  string(SZEncodeBase16(SHA1(buf)));
-
-                      iNode := iNode.ParentNode.ChildNodes.FindNode('bkp', '');
-                      if (iNode <> nil) and (BKPCode <> '') then
-                        begin
-                          iNode.Text := FormatBKP(BKPCode);
-                        end;
-                    end;
-                end;
-            end;
         end;
     end;
   iNode :=  xmlDoc.ChildNodes.FindNode(SSoapNameSpacePre + ':Envelope');

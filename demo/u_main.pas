@@ -234,6 +234,7 @@ begin
         if EET.ErrorCode <> 0 then
           ShowMessageFmt('Chyba : %d - %s', [EET.ErrorCode,EET.ErrorMessage]);
       end;
+    synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
   finally
     if Odp <> nil then FreeAndNil(Odp);    
     eTrzba.Free;
