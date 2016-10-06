@@ -141,6 +141,7 @@ var
   EET : TEETTrzba;
   Lst : TStringList;
   I: Integer;
+  ms : TMemoryStream;
 
   function DoubleToCastka(Value : Double) : String;
   begin
@@ -150,6 +151,7 @@ var
 begin
   EET := TEETTrzba.Create(nil);
   eTrzba := EET.NewTrzba;
+  ms := TMemoryStream.Create;
   try
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
@@ -187,6 +189,15 @@ begin
     eTrzba.Data.zakl_dan2.DecimalString := DoubleToCastka(-3538.20);
     eTrzba.Data.zakl_dan3.DecimalString := DoubleToCastka(9756.46);
     eTrzba.Data.zakl_nepodl_dph.DecimalString := DoubleToCastka(3036.00);
+
+//    EET.SignTrzba(eTrzba); // normalizace datumu a vygenervani PKP,BKP
+
+    // test ulozeni do XML a nacteni z XML
+//    EET.SaveToXML(eTrzba, ms);
+//    ms.Position := 0;
+//    eTrzba.Free;
+//    eTrzba := EET.NewTrzba;
+//    EET.LoadFromXML(eTrzba, ms);
 
     Odp := EET.OdeslaniTrzby(eTrzba);
     if (EET.ErrorCode = 0) and (Odp <> nil) then
@@ -239,6 +250,7 @@ begin
     if Odp <> nil then FreeAndNil(Odp);    
     eTrzba.Free;
     EET.Free;
+    ms.Free;
   end;
 end;
 

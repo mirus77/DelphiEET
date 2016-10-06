@@ -4,7 +4,7 @@ interface
 
 uses
   Windows,System.SysUtils, System.Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, Soap.WebNode, Soap.OpConvertOptions,
+  SOAPHTTPTrans, Soap.WebNode, Soap.OpConvertOptions, Soap.OPToSOAPDomConv,
   {$IFDEF USE_INDY}
     IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
   {$ELSE}
@@ -69,8 +69,11 @@ type
     destructor Destroy; override;
     procedure Initialize;
     function NewTrzba : Trzba;
-    function OdeslaniTrzby(const parameters: Trzba): Odpoved;
+    function SignTrzba(const parameters: Trzba): Boolean;
+    function OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
     function HasVarovani(Odpoved : OdpovedType) : Boolean;
+    procedure SaveToXML(const parameters: Trzba; const DestStream : TStream);
+    procedure LoadFromXML(const parameters: Trzba; const SourceStream : TStream);
   published
     property PFXStream : TMemoryStream read FPFXStream;
     property CERStream : TMemoryStream read FCERStream;
@@ -163,6 +166,25 @@ begin
   IsInitialized:=true;
 end;
 
+procedure TEETTrzba.LoadFromXML(const parameters: Trzba; const SourceStream: TStream);
+var
+  Converter: IObjConverter;
+  NodeParent: IXMLNode;
+  NodeRoot: IXMLNode;
+  XML, XMLin: IXMLDocument;
+begin
+  XML   := NewXMLDocument;
+  XMLin := NewXMLDocument;
+  XMLin.LoadFromStream(SourceStream);
+
+  NodeRoot:= XML.AddChild('Root');
+  NodeParent:= NodeRoot.AddChild('Parent');
+  NodeParent.ChildNodes.Add(XMLin.DocumentElement);
+
+  Converter:= TSOAPDomConv.Create(NIL);
+  parameters.SOAPToObject(NodeRoot, XMLin.DocumentElement, Converter);
+end;
+
 function TEETTrzba.NewTrzba: Trzba;
 begin
   Result := Trzba.Create;
@@ -196,47 +218,17 @@ begin
   Result.Data.zakl_dan2 := CastkaType.Create;
   Result.Data.zakl_dan3 := CastkaType.Create;
   Result.Data.zakl_nepodl_dph := CastkaType.Create;
+
+  // KontrolniKody prepare
+  Result.KontrolniKody := TrzbaKontrolniKodyType.Create;
+  Result.KontrolniKody.pkp := PkpElementType.Create;
+  Result.KontrolniKody.bkp := BkpElementType.Create;
 end;
 
-function TEETTrzba.OdeslaniTrzby(const parameters: Trzba): Odpoved;
+function TEETTrzba.OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean): Odpoved;
 var
   Service : EET;
   Hdr : TEETHeader;
-  buf: AnsiString;
-  I : integer;
-  sPKPData : string;
-
-  function DateTimeToXMLTime(Value: TDateTime): string;
-  const
-    Neg: array[Boolean] of string=  ('+', '-');
-  var
-    Bias: Integer;
-    tz:TTimeZone;
-  begin
-    Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
-    tz := TTimeZone.Local;
-    Bias := Trunc(tz.GetUTCOffset(Value).Negate.TotalMinutes);
-    if (Bias <> 0) then
-    begin
-      Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
-                                         Abs(Bias) div MinsPerHour,
-                                         Abs(Bias) mod MinsPerHour]);
-    end
-  end;
-
-  function FormatBKP(Value : string): string;
-  begin
-    Result := '';
-    I := 1;
-    while I <= Length(Value) do
-      begin
-        Result := Result + Value[I];
-        if (I mod 8 = 0) and (I < Length(Value)) then
-          Result := Result + '-';
-        Inc(I);
-      end;
-  end;
-
 begin
   FValidResponse := True;
   FErrorCode := 0;
@@ -248,32 +240,7 @@ begin
    try
      (Service as ISOAPHeaders).Send(Hdr); { add the header to outgoing message }
 
-     // milisecond in output correction
-     parameters.Hlavicka.dat_odesl.XSToNative(DateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-     parameters.Data.dat_trzby.XSToNative(DateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
-     // KontrolniKody prepare
-     if parameters.KontrolniKody = nil then  parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
-     if parameters.KontrolniKody.pkp = nil then parameters.KontrolniKody.pkp := PkpElementType.Create;
-     if parameters.KontrolniKody.bkp = nil then parameters.KontrolniKody.bkp := BkpElementType.Create;
-
-     parameters.KontrolniKody.pkp.Text := '';
-     parameters.KontrolniKody.bkp.Text := '';
-
-     // source data for PKP
-     sPKPData := '';
-     sPKPData := parameters.Data.dic_popl;
-     sPKPData := sPKPData + '|' + IntToStr(parameters.Data.id_provoz);
-     sPKPData := sPKPData + '|' + parameters.Data.id_pokl;
-     sPKPData := sPKPData + '|' + parameters.Data.porad_cis;
-     sPKPData := sPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
-     sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
-
-     // generovat PKP
-     buf := FSigner.SignString(sPKPData);
-     parameters.KontrolniKody.pkp.Text := string(EncodeBase64(buf));
-     // generovat BKP z puvodniho cisteho podpisu retezce
-     parameters.KontrolniKody.bkp.Text := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
+     if not SendOnly then SignTrzba(parameters);
 
      try
        Result := Service.OdeslaniTrzby(parameters); { invoke the service }
@@ -287,6 +254,28 @@ begin
    finally
      Hdr.Free;
    end;
+end;
+
+procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
+var
+  Converter: IObjConverter;
+  NodeObject: IXMLNode;
+  NodeParent: IXMLNode;
+  NodeRoot: IXMLNode;
+  XML, XMLout: IXMLDocument;
+  XMLStr: String;
+begin
+  XML:= NewXMLDocument;
+  XMLout:= NewXMLDocument;
+  NodeRoot:= XML.AddChild('Root');
+  NodeParent:= NodeRoot.AddChild('Parent');
+  Converter:= TSOAPDomConv.Create(NIL);
+  NodeObject:= parameters.ObjectToSOAP(NodeRoot, NodeParent, Converter, 'Trzba', '', '', [ocoDontPrefixNode,ocoDontPutTypeAttr], XMLStr);
+//  Target.SOAPToObject(NodeRoot, NodeObject, Converter);
+  NodeObject.Attributes['xmlns'] := 'http://fs.mfcr.cz/eet/schema/v3';
+  XMLout.Options := [doNodeAutoCreate];
+  XMLout.DocumentElement := NodeObject;
+  XMLout.SaveToStream(DestStream);
 end;
 
 procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
@@ -335,6 +324,80 @@ begin
   (SOAPRequest as TMemoryStream).Clear;
   xmlDoc.SaveToStream(SOAPRequest as TMemoryStream);
   FSigner.SignXML(SOAPRequest as TMemoryStream);
+end;
+
+function TEETTrzba.SignTrzba(const parameters: Trzba): Boolean;
+var
+  buf: AnsiString;
+  I : integer;
+  sPKPData : string;
+
+  function DateTimeToXMLTime(Value: TDateTime): string;
+  const
+    Neg: array[Boolean] of string=  ('+', '-');
+  var
+    Bias: Integer;
+    tz:TTimeZone;
+  begin
+    Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
+    tz := TTimeZone.Local;
+    Bias := Trunc(tz.GetUTCOffset(Value).Negate.TotalMinutes);
+    if (Bias <> 0) then
+    begin
+      Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
+                                         Abs(Bias) div MinsPerHour,
+                                         Abs(Bias) mod MinsPerHour]);
+    end
+  end;
+
+  function FormatBKP(Value : string): string;
+  begin
+    Result := '';
+    I := 1;
+    while I <= Length(Value) do
+      begin
+        Result := Result + Value[I];
+        if (I mod 8 = 0) and (I < Length(Value)) then
+          Result := Result + '-';
+        Inc(I);
+      end;
+  end;
+
+begin
+  Result := False;
+  if not IsInitialized then exit;
+
+  // milisecond in output correction
+  parameters.Hlavicka.dat_odesl.XSToNative(DateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+  parameters.Data.dat_trzby.XSToNative(DateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+
+  // KontrolniKody prepare
+  if parameters.KontrolniKody = nil then  parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
+  if parameters.KontrolniKody.pkp = nil then parameters.KontrolniKody.pkp := PkpElementType.Create;
+  if parameters.KontrolniKody.bkp = nil then parameters.KontrolniKody.bkp := BkpElementType.Create;
+
+  parameters.KontrolniKody.pkp.Text := '';
+  parameters.KontrolniKody.bkp.Text := '';
+
+  // source data for PKP
+  sPKPData := '';
+  sPKPData := parameters.Data.dic_popl;
+  sPKPData := sPKPData + '|' + IntToStr(parameters.Data.id_provoz);
+  sPKPData := sPKPData + '|' + parameters.Data.id_pokl;
+  sPKPData := sPKPData + '|' + parameters.Data.porad_cis;
+  sPKPData := sPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
+  sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
+
+  // generovat PKP
+  buf := FSigner.SignString(sPKPData);
+  if Length(buf) > 0 then
+    begin
+      parameters.KontrolniKody.pkp.Text := string(EncodeBase64(buf));
+      // generovat BKP z puvodniho cisteho podpisu retezce
+      parameters.KontrolniKody.bkp.Text := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
+    end;
+
+  Result := parameters.KontrolniKody.pkp.Text <> ''
 end;
 
 procedure TEETTrzba.ValidateResponse(SOAPResponse: TStream);
