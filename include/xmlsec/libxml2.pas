@@ -11,9 +11,9 @@ interface
 
 const
 {$IFDEF WIN32}
-  LIBXML2_SO = 'libxml2-2.dll';
+  LIBXML2_SO = {$IFNDEF USE_UCRT_LIBS}'libxml2-2.dll'{$ELSE}'libxml2.dll'{$ENDIF};
 {$ELSE}
-  LIBXML2_SO = 'libxml2-2.so';
+  LIBXML2_SO = 'libxml2.so';
 {$ENDIF}
 
   XML_DETECT_IDS = 2;

@@ -1,5 +1,5 @@
 Unit libxmlsec_openssl;
-
+{.$DEFINE _DYNAMIC_LOAD_XMLSEC}
 interface
 
 {$ALIGN 8}
@@ -9,47 +9,137 @@ uses System.SysUtils, System.TimeSpan,  libxml2, libxmlsec, libeay32;
 
 const
 {$IFDEF WIN32}
-  LIBXMLSECOPENSSL_SO = 'libxmlsec1-openssl.dll';
+  LIBXMLSECOPENSSL_SO = {$IFNDEF USE_UCRT_LIBS}'libxmlsec1-openssl.dll'{$ELSE}'libxmlsec-openssl.dll'{$ENDIF};
 {$ELSE}
-  LIBXMLSECOPENSSL_SO = 'libxmlsec1-openssl.so';
+  LIBXMLSECOPENSSL_SO = 'libxmlsec-openssl.so';
 {$ENDIF}
-  LIBMSVCRT = 'msvcrt.dll';
 
+// InitXMLSecOpenSSL always returns true if static linking - does nothing else.
+function InitXMLSecOpenSSL(const path: string = ''): Boolean;
+// FreeXMLSecOpenSSL does nothing for static linking. Otherwise it decrements a ref
+// count and eventually unloads the libxmlsec-openssl.dll. Returns true if library is finally
+// unloaded.
+function FreeXMLSecOpenSSL: Boolean;
+
+{$IFNDEF _DYNAMIC_LOAD_XMLSEC}
 function xmlSecOpenSSLAppKeysMngrAddCertsFile(mngr: xmlSecKeysMngrPtr; const filename: PAnsiChar): Longint; cdecl;
-  external LIBXMLSECOPENSSL_SO;
 function xmlSecOpenSSLAppKeysMngrCertLoadMemory(mngr: xmlSecKeysMngrPtr; const data: xmlSecBytePtr; dataSize: xmlSecSize;
-  format: xmlSecKeyDataFormat; type_: xmlSecKeyDataType): Longint; cdecl; external LIBXMLSECOPENSSL_SO;
-function xmlSecOpenSSLKeyDataX509GetKlass(): xmlSecKeyDataId; cdecl; external LIBXMLSECOPENSSL_SO;
-function xmlSecOpenSSLKeyDataX509GetKeyCert(data: xmlSecKeyDataPtr): PX509; cdecl; external LIBXMLSECOPENSSL_SO;
+  format: xmlSecKeyDataFormat; type_: xmlSecKeyDataType): Longint; cdecl;
+function xmlSecOpenSSLKeyDataX509GetKlass(): xmlSecKeyDataId; cdecl;
+function xmlSecOpenSSLKeyDataX509GetKeyCert(data: xmlSecKeyDataPtr): PX509; cdecl;
+{$ENDIF}  // static linking
 
+// internal macros
 function xmlSecKeyDataIsValid(data: xmlSecKeyDataPtr): Boolean;
 function xmlSecKeyDataCheckId(data: xmlSecKeyDataPtr; dataId: xmlSecKeyDataId): Boolean;
 function xmlSecOpenSSLKeyDataX509Id: xmlSecKeyDataId;
+// internal macros
+
 function xmlSecOpenSSLX509CertGetTime(asn1_time: PASN1_TIME; var res: TDateTime): Longint;
+function xmlSecOpenSSLX509CertGetSerialNumber(SN: pASN1_INTEGER; var res: string): Longint;
 
 {$IFDEF DEBUG}
 procedure _xmlSecKeyDebugDump(Key: xmlSecKeyPtr; filename: xmlCharPtr);
+procedure _xmlDocDump(Doc: xmlDocPtr; filename: xmlCharPtr);
+procedure _xmlSecDSignDebugDump(DSignCtx: xmlSecDSigCtxPtr; filename: xmlCharPtr);
+{$ENDIF}
+
+{$IFDEF _DYNAMIC_LOAD_XMLSEC}
+var
+  xmlSecOpenSSLAppKeysMngrAddCertsFile : function (mngr: xmlSecKeysMngrPtr; const filename: PAnsiChar): Longint; cdecl;
+  xmlSecOpenSSLAppKeysMngrCertLoadMemory : function (mngr: xmlSecKeysMngrPtr; const data: xmlSecBytePtr; dataSize: xmlSecSize; format: xmlSecKeyDataFormat; type_: xmlSecKeyDataType): Longint; cdecl;
+  xmlSecOpenSSLKeyDataX509GetKlass : function (): xmlSecKeyDataId; cdecl;
+  xmlSecOpenSSLKeyDataX509GetKeyCert : function (data: xmlSecKeyDataPtr): PX509; cdecl;
 {$ENDIF}
 
 implementation
 
-uses u_EETSignerExceptions, System.DateUtils, System.AnsiStrings;
-
-{$IFDEF DEBUG}
-function fopen(const filename, mode: PAnsiChar): PFILE; cdecl; external LIBMSVCRT;
-function fclose(stream: PFILE): Integer; cdecl; external LIBMSVCRT;
+uses
+{$IFDEF _DYNAMIC_LOAD_XMLSEC}
+  SyncObjs,
 {$ENDIF}
 {$IFDEF DEBUG}
+  vcruntime,
+{$ENDIF}
+  Windows, u_EETSignerExceptions, System.DateUtils, System.AnsiStrings;
 
+{$IFNDEF _DYNAMIC_LOAD_XMLSEC}
+function xmlSecOpenSSLAppKeysMngrAddCertsFile; external LIBXMLSECOPENSSL_SO;
+function xmlSecOpenSSLAppKeysMngrCertLoadMemory; external LIBXMLSECOPENSSL_SO;
+function xmlSecOpenSSLKeyDataX509GetKlass; external LIBXMLSECOPENSSL_SO;
+function xmlSecOpenSSLKeyDataX509GetKeyCert; external LIBXMLSECOPENSSL_SO;
+{$ENDIF}
+
+{$IFDEF _DYNAMIC_LOAD_XMLSEC}
+var
+  FXmlSecLibHandle: THandle = 0;
+  Lock: TCriticalSection;
+  ReferenceCount: Integer = 0;
+{$ENDIF}
+
+{$IFNDEF _DYNAMIC_LOAD_XMLSEC}
+function InitXMLSecOpenSSL(const path: string): Boolean;
+begin
+  Result := true;
+end;
+
+function FreeXMLSecOpenSSL: Boolean;
+begin
+  Result := true;  // static linked is never unloaded as such
+end;
+{$ENDIF}
+
+function BytesToHexString(APtr: Pointer; ALen: Integer): String;
+{$IFDEF USE_INLINE} inline; {$ENDIF}
+var
+  i: Integer;
+  LPtr: PByte;
+begin
+  Result := '';
+  LPtr := PByte(APtr);
+  for i := 0 to (ALen - 1) do begin
+    if i <> 0 then begin
+      Result := Result + ':'; { Do not Localize }
+    end;
+    Result := Result + Format('%.2x', [LPtr^]);
+    Inc(LPtr);
+  end;
+end;
+
+{$IFDEF DEBUG}
 procedure _xmlSecKeyDebugDump(Key: xmlSecKeyPtr; filename: xmlCharPtr);
 var
   fOutput: PFILE;
 begin
-  fOutput := fopen(filename, PAnsiChar(string('w')));
+  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
   if fOutput <> nil then
   begin
     xmlSecKeyDebugDump(Key, fOutput);
-    fclose(fOutput);
+    crt_fclose(fOutput);
+  end;
+end;
+
+procedure _xmlDocDump(Doc: xmlDocPtr; filename: xmlCharPtr);
+var
+  fOutput: PFILE;
+begin
+  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
+  if fOutput <> nil then
+  begin
+    xmlDocDump(fOutput, Doc);
+    crt_fclose(fOutput);
+  end;
+end;
+
+procedure _xmlSecDSignDebugDump(DSignCtx: xmlSecDSigCtxPtr; filename: xmlCharPtr);
+var
+  fOutput: PFILE;
+begin
+  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
+  if fOutput <> nil then
+  begin
+    xmlSecDSigCtxDebugDump(DSignCtx, fOutput);
+    crt_fclose(fOutput);
   end;
 end;
 {$ENDIF}
@@ -140,4 +230,67 @@ begin
     res := EncodeDateTime(Y, M, D, h, n, s, 0);
 end;
 
+function xmlSecOpenSSLX509CertGetSerialNumber(SN: pASN1_INTEGER; var res: string): Longint;
+begin
+  Result := 0;
+  res := BytesToHexString(SN.data, SN.length);
+end;
+
+{$IFDEF _DYNAMIC_LOAD_XMLSEC}
+function InitXMLSecOpenSSL(const path: string): Boolean;
+begin
+  Lock.Enter;
+  try
+    Inc(ReferenceCount);
+    if FXmlSecLibHandle = 0 then
+      begin
+        if path <> '' then
+          SetDllDirectory(PChar(path));
+        FXmlSecLibHandle := LoadLibrary(LIBXMLSECOPENSSL_SO);
+        if FXmlSecLibHandle > 0 then
+          begin
+            xmlSecOpenSSLAppKeysMngrAddCertsFile :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLAppKeysMngrAddCertsFile');
+            xmlSecOpenSSLAppKeysMngrCertLoadMemory :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLAppKeysMngrCertLoadMemory');
+            xmlSecOpenSSLKeyDataX509GetKlass :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetKlass');
+            xmlSecOpenSSLKeyDataX509GetKeyCert :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetKeyCert');
+          end;
+      end;
+
+    Result := FXmlSecLibHandle > 0;
+  finally
+    Lock.Leave;
+  end;
+end;
+
+function FreeXMLSecOpenSSL: Boolean;
+begin
+  Lock.Enter;
+  try
+    if ReferenceCount > 0 then
+      Dec(ReferenceCount);
+
+    if (FXmlSecLibHandle <> 0) and (ReferenceCount = 0) then
+    begin
+      FXmlSecLibHandle := 0;
+
+      xmlSecOpenSSLAppKeysMngrAddCertsFile    := nil;
+      xmlSecOpenSSLAppKeysMngrCertLoadMemory  := nil;
+      xmlSecOpenSSLKeyDataX509GetKlass        := nil;
+      xmlSecOpenSSLKeyDataX509GetKeyCert      := nil;
+    end;
+    Result := FXmlSecLibHandle = 0;
+  finally
+    Lock.Leave;
+  end;
+end;
+
+initialization
+  Lock := TCriticalSection.Create;
+  InitXMLSecOpenSSL('');
+
+finalization
+  while ReferenceCount > 0 do
+    FreeXMLSecOpenSSL;
+  Lock.Free;
+{$ENDIF}
 end.

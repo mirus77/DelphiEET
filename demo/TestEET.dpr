@@ -7,7 +7,9 @@ program TestEET;
   Delphi project Options
   ----------------------
   {for using in Windows XP)
-  Delphi Compiler Options -> Conditional Defines : USE_INDY
+  Delphi Compiler Options -> Conditional Defines :
+       USE_INDY - recompile SOAP comunications with Indy
+       USE_UCRT_LIBS - libxml,libmlsec use library's compiled with Visual Studio 2015 (Visual C++ Build platform 14)
 
   (for other)
   Delphi Compiler Options -> Output Directory: ..\bin

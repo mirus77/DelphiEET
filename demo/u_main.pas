@@ -33,9 +33,6 @@ type
   private
     procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
-    {$IFDEF USE_INDY}
-    function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
-    {$ENDIF}
   public
     procedure DoOdeslatTrzba;
   end;
@@ -110,18 +107,14 @@ begin
   ms := TMemoryStream.Create;
   try
     lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\01000003.p12'), 'eet');
-    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\trusted_CA.cer'));  // cert not used
+    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\trusted_CA.cer'));
+//    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\ca.cer'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
-    if lSigner.VerifyCertIncluded then
-      begin
-        if lSigner.VerifyXML(ms,'Body', 'Id') then
-          MessageDlg('Ovìøení XML - OK.', mtInformation, [mbOK], 0)
-        else
-          MessageDlg('Neplatný podpis zprávy !!!', mtError, [mbOK], 0)
-      end
+    if lSigner.VerifyXML(ms,'Body', 'Id') then
+      MessageDlg('Ovìøení XML - OK.', mtInformation, [mbOK], 0)
     else
-      MessageDlg('Není vložen ovìøovací certifikat', mtError, [mbOK], 0);
+      MessageDlg('Neplatný podpis zprávy !!!', mtError, [mbOK], 0)
   finally
     ms.Free;
     lSigner.Free;
@@ -270,10 +263,4 @@ begin
     synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
 end;
 
-{$IFDEF USE_INDY}
-function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
-begin
-  Result := AOk;
-end;
-{$ENDIF}
 end.

@@ -11,9 +11,9 @@ uses libxml2, libxslt;
 
 const
 {$IFDEF WIN32}
-  LIBXMLSEC_SO = 'libxmlsec1.dll';
+  LIBXMLSEC_SO = {$IFNDEF USE_UCRT_LIBS}'libxmlsec1.dll'{$ELSE}'libxmlsec.dll'{$ENDIF};
 {$ELSE}
-  LIBXMLSEC_SO = 'libxmlsec1.so';
+  LIBXMLSEC_SO = 'libxmlsec.so';
 {$ENDIF}
 
 type

@@ -404,10 +404,10 @@ procedure TEETTrzba.ValidateResponse(SOAPResponse: TStream);
 begin
   FValidResponse := False;
 
-  if FSigner.VerifyCertIncluded then
-    begin
+//  if FSigner.VerifyCertIncluded then
+//    begin
       FValidResponse := FSigner.VerifyXML(SOAPResponse as TMemoryStream, 'Body', 'Id');
-    end;
+//    end;
 end;
 
 { TEETRIO }

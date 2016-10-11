@@ -7,6 +7,7 @@ uses Classes, libxml2, libxmlsec, SysUtils;
 Type
   TEETSignerKeyInfo = record
     Name : string;
+    SerialNumber : string;
     notValidBefore : TDateTime;
     notValidAfter : TDateTime;
   end;
@@ -62,6 +63,9 @@ end;
 implementation
 
 uses
+  {$IFDEF DEBUG}
+  vcruntime ,
+  {$ENDIF}
   u_EETSignerExceptions, StrUtils, System.DateUtils, libxmlsec_openssl, libeay32;
 
 const
@@ -69,7 +73,7 @@ const
   FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
 
 var
-  EETSignerCount: Integer;
+  EETSignerCount: Integer = 0;
 
 { TEETSigner }
 
@@ -185,6 +189,7 @@ begin
   if EETSignerCount > 1
   then Exit;
 
+  xmlInitParser();
   __xmlLoadExtDtdDefaultValue^ := XML_DETECT_IDS or XML_COMPLETE_ATTRS;
   xmlSubstituteEntitiesDefault(1);
   __xmlIndentTreeOutput^ := 0;  // nemaji se formatovat XML elementy
@@ -199,6 +204,8 @@ begin
 
   if (xmlSecCryptoDLLoadLibrary('openssl') < 0)
   then raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
+//  if (xmlSecCryptoDLLoadLibrary('mscrypto') < 0)
+//  then raise EEETSignerException.Create(sSignerInitNoXmlsecMSCryptoDll);
 
   if (xmlSecCryptoAppInit(nil) < 0)
   then raise EEETSignerException.Create(sSignerXmlSecInitError);
@@ -249,6 +256,7 @@ var
   DataItem : xmlSecKeyDataPtr;
   x509cert : pX509;
   a_time : TDateTime;
+  a_serialnumber : string;
 begin
   CheckActive;
 
@@ -276,6 +284,8 @@ begin
                    FPrivKeyInfo.notValidBefore :=a_time;
                  if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
                    FPrivKeyInfo.notValidAfter := a_time;
+                 if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
+                   FPrivKeyInfo.SerialNumber :=a_serialnumber;
                end;
           end;
 
@@ -291,7 +301,9 @@ end;
 procedure TEETSigner.SetActive(const Value: Boolean);
 var
   Key: xmlSecKeyPtr;
+{$IFDEF DEBUG}
   keysfilename : AnsiString;
+{$ENDIF}
   certkeyformat : xmlSecKeyDataFormat;
   certkeystring : AnsiString;
 begin
@@ -311,8 +323,11 @@ begin
     FPFXStream.Clear;
     FCERStream.Clear;
     FActive := False;
+    FreeXMLSecOpenSSL;
     Exit;
   end;
+
+  if not InitXMLSecOpenSSL then raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
 
   if FCertPassword = '' // mora biti password
   then raise EEETSignerException.Create(sSignerNoPassword);
@@ -324,6 +339,7 @@ begin
       if FPFXStream.Size > 0
       then begin
         FPrivKeyInfo.Name := '';
+        FPrivKeyInfo.SerialNumber := '';
         FPrivKeyInfo.notValidBefore := 0;
         FPrivKeyInfo.notValidAfter := 0;
 
@@ -365,7 +381,7 @@ begin
             FCERStream.Memory,
             FCERStream.Size,
             certkeyformat,
-            $100 {xmlSecKeyDataTypeTrusted} ) <> 0
+            $100 {xmlSecKeyDataTypeTrusted} ) < 0
         then  begin
           FVerifyCertIncluded := False;
           raise EEETSignerException.Create(sSignerInvalidVerifyCert)
@@ -562,85 +578,95 @@ var
   Doc: xmlDocPtr;
   Node, SignatureNode: xmlNodePtr;
   BSTNode: xmlNodePtr;
-//  KeyInfoNode, x509Data, x509Certificate : xmlNodePtr;
+  KeyInfoNode, x509Data, x509Certificate : xmlNodePtr;
   DsigCtx: xmlSecDSigCtxPtr;
   Attr: xmlAttrPtr;
   IdVal: AnsiString;
-
-  ss : TStringStream;
-  ms : TMemoryStream;
 begin
-    CheckActive;
+  CheckActive;
 
-    Doc := nil; DsigCtx := nil; {Attr := nil;}
-    Result := False;
-    try
-      Doc := xmlSecParseMemory( xmlSecBytePtr(XMLStream.Memory), XMLStream.Size, 0);
-      if Doc = nil
-      then raise EEETXMLException.Create(sXMLNotXML);
+  Doc := nil; DsigCtx := nil; {Attr := nil;}
+  Result := False;
+  try
+    Doc := xmlSecParseMemory( xmlSecBytePtr(XMLStream.Memory), XMLStream.Size, 0);
+    if Doc = nil
+    then raise EEETXMLException.Create(sXMLNotXML);
 
-      if SignedNodeName <> ''
+    if SignedNodeName <> ''
+    then begin
+      // add Id Atrribute for reference
+      Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(FISKXML_TNSSCHEMA_URI));
+      if Node = nil then
+        Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(xmlSecSoap11Ns));
+      if Node <> nil
       then begin
-        Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(FISKXML_TNSSCHEMA_URI));
-        if Node = nil then
-          Node := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar(SignedNodeName), PAnsiChar(xmlSecSoap11Ns));
-        if Node <> nil
+        Attr := xmlHasProp(Node, PAnsiChar(IdProp) );
+        if Attr <> nil
         then begin
-          Attr := xmlHasProp(Node, PAnsiChar(IdProp) );
-          if Attr <> nil
-          then begin
-            IdVal := xmlGetProp(Node, PAnsiChar(IdProp));
-            xmlAddID(nil, Doc, @(IdVal[1]), Attr);
-          end;
+          IdVal := xmlGetProp(Node, PAnsiChar(IdProp));
+          xmlAddID(nil, Doc, @(IdVal[1]), Attr);
         end;
       end;
+    end;
 
-      BSTNode := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar('BinarySecurityToken'), PAnsiChar('http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'));
+    BSTNode := xmlSecFindNode(xmlDocGetRootElement(Doc), PAnsiChar('BinarySecurityToken'), PAnsiChar('http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'));
 
-      SignatureNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeSignature), xmlCharPtr(xmlSecDSigNs));
-      if SignatureNode <> nil
-      then
-        begin
-          {$IFDEF DEBUG}
-//          xmlSaveFile(PAnsiChar('beforeverify.xml'), doc);
-          {$ENDIF}
+    SignatureNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeSignature), xmlCharPtr(xmlSecDSigNs));
+    if SignatureNode <> nil
+    then
+      begin
+        DsigCtx := xmlSecDSigCtxCreate(FMngr);
+        Assert(DsigCtx <> nil);
 
-          DsigCtx := xmlSecDSigCtxCreate(FMngr);
-          Assert(DsigCtx <> nil);
-
-          if BSTNode <> nil then
-            begin
-              ms := TMemoryStream.Create;
-              ss := TStringStream.Create('-----BEGIN CERTIFICATE-----' + sLineBreak + xmlNodeGetContent(BSTNode) + sLineBreak + '-----END CERTIFICATE-----' + sLineBreak, TEncoding.ANSI);
-              try
-                ss.SaveToStream(ms);
-                DsigCtx.signKey := xmlSecCryptoAppKeyLoadMemory(
-                  ms.Memory,
-                  ms.Size,
-                  xmlSecKeyDataFormatCertPem,
-                  nil, nil, nil
-                );
-                if DsigCtx.signKey = nil
-                then
-                  raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['Load DsigCtx.signKey from BinarySecurityToken']);
-              finally
-                ms.Free;
-                ss.Free;
-              end;
+        if (BSTNode <> nil) then
+          begin
+            Attr := xmlHasProp(BSTNode, PAnsiChar(IdProp) );
+            if Attr <> nil
+            then begin
+              IdVal := xmlGetProp(BSTNode, PAnsiChar(IdProp));
+              xmlAddID(nil, Doc, @(IdVal[1]), Attr);
             end;
 
-          {$BOOLEVAL OFF}
-          Result := (xmlSecDSigCtxVerify(DsigCtx, SignatureNode) = 0) and (DsigCtx^.status = xmlSecDSigStatusSucceeded)
-        end;
+            // simulate X509Certifica node from
+            // hack KeyInfo for verify from BinarySecurityToken
+            KeyInfoNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
+            if KeyInfoNode <> nil then
+              begin
+                xmlUnlinkNode(KeyInfoNode);
+                xmlFreeNode(KeyInfoNode);
+              end;
 
-    finally
-      if Doc <> nil
-      then xmlFreeDoc(Doc);
-      if DsigCtx <> nil
-      then xmlSecDSigCtxDestroy(DsigCtx);
-    end;
+            KeyInfoNode := xmlSecAddChild(SignatureNode, xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
+            if KeyInfoNode = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['KeyInfoNode']);
+
+            X509Data := xmlSecTmplKeyInfoAddX509Data(KeyInfoNode);
+            if X509Data = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Data']);
+
+            X509Certificate := xmlSecTmplX509DataAddCertificate(X509Data);
+            if X509Certificate = nil
+            then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['X509Certificate']);
+
+            xmlNodeSetContent(X509Certificate, xmlNodeGetContent(BSTNode));
+            xmlSecAddChildNode(X509Data, X509Certificate);
+          end;
+
+        {$IFDEF DEBUG}
+        _xmlDocDump(Doc, PAnsiChar(ansistring('beforeverify-xml.xml')));
+        {$ENDIF}
+
+        {$BOOLEVAL OFF}
+        if (xmlSecDSigCtxVerify(DsigCtx, SignatureNode) = 0) then
+            Result := (DsigCtx^.status = xmlSecDSigStatusSucceeded);
+      end;
+
+  finally
+    if Doc <> nil
+    then xmlFreeDoc(Doc);
+    if DsigCtx <> nil
+    then xmlSecDSigCtxDestroy(DsigCtx);
+  end;
 end;
 
-initialization
-  EETSignerCount := 0;
 end.
