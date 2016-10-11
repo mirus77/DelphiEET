@@ -653,7 +653,7 @@ begin
           end;
 
         {$IFDEF DEBUG}
-        _xmlDocDump(Doc, PAnsiChar(ansistring('beforeverify-xml.xml')));
+        _xmlDocDump(Doc, PAnsiChar(ansistring('beforeverify.xml')));
         {$ENDIF}
 
         {$BOOLEVAL OFF}
