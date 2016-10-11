@@ -33,6 +33,9 @@ type
   private
     procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
+    {$IFDEF USE_INDY}
+    function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
+    {$ENDIF}
   public
     procedure DoOdeslatTrzba;
   end;
@@ -149,10 +152,11 @@ begin
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
-//    EET.OnVerifyPeer := VerifyPeer;
+    EET.OnVerifyPeer := VerifyPeer;
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
     EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.cer'));
+//    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
     EET.PFXPassword := 'eet';
     EET.ConnectTimeout := 2000;
     EET.Initialize;
@@ -261,6 +265,15 @@ begin
     synmRequest.Lines.LoadFromFile('request.xml', TEncoding.UTF8);
   if FileExists('response.xml') then
     synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
+end;
+
+function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
+begin
+  Result := AOk;
+  if ADepth = 0 then
+    begin
+      synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine);
+    end;
 end;
 
 end.

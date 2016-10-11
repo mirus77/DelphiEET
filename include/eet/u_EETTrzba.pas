@@ -55,6 +55,7 @@ type
     FOnVerifyPeer: TVerifyPeerEvent;
     {$ENDIF}
     FRootCertFile: string;
+    FHttpsTrustName: string;
   protected
     IsInitialized: boolean;
     FSigner : TEETSigner;
@@ -79,6 +80,7 @@ type
     property CERStream : TMemoryStream read FCERStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
     property RootCertFile : string read FRootCertFile write FRootCertFile;
+    property HttpsTrustName : string read FHttpsTrustName write FHttpsTrustName;
     property ConnectTimeout : Integer read FConnectTimeout write FConnectTimeout;
     property SendTimeout : Integer read FSendTimeout write FSendTimeout;
     property ReceiveTimeout : Integer read FReceiveTimeout write FReceiveTimeout;
@@ -117,6 +119,7 @@ begin
   FPFXPassword := '';
   FPFXStream := TMemoryStream.Create;
   FCERStream := TMemoryStream.Create;
+  FHttpsTrustName := 'www.eet.cz';
   FConnectTimeout := 2000;
   FSendTimeout := 3000;
   FReceiveTimeout := 3000;
@@ -450,10 +453,31 @@ end;
 {$IFDEF USE_INDY}
 function TEETRIO.DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth,
   AError: Integer): Boolean;
+var
+  TempList: TStringList;
+  Cn: String;
 begin
   Result := AOk;
   if Assigned(FEET) then
-      if Assigned(FEET.OnVerifyPeer) then Result := FEET.OnVerifyPeer(Certificate, AOk, ADepth, AError);
+    begin
+      // check range validity
+      Result := CompareDateTime(Certificate.notBefore, Now) = CompareDateTime(Now, Certificate.notAfter);
+      if Result and (FEET.HttpsTrustName <> '') and (ADepth = 0) then
+        begin
+          // check common name by HtttpTrustName
+          Cn := '';
+          TempList:= TStringList.Create;
+          try
+            TempList.Delimiter := '/';
+            TempList.DelimitedText := Certificate.Subject.OneLine;
+            Cn := Trim(TempList.Values['CN']);
+          finally
+            TempList.Free;
+          end;
+          Result := SameText(Cn, EET.HttpsTrustName)
+        end;
+      if Result and Assigned(FEET.OnVerifyPeer) then Result := FEET.OnVerifyPeer(Certificate, Result, ADepth, AError);
+    end;
 end;
 {$ENDIF}
 
