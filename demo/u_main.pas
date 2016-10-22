@@ -109,9 +109,8 @@ begin
   lSigner := TEETSigner.Create(nil);
   ms := TMemoryStream.Create;
   try
-    lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\01000003.p12'), 'eet');
-    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\trusted_CA.cer'));
-//    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\ca.cer'));
+    lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
+    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms,'Body', 'Id') then
@@ -154,8 +153,9 @@ begin
     EET.OnAfterSendRequest := AfterSendExecute;
     EET.OnVerifyPeer := VerifyPeer;
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
-    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
-    EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.cer'));
+    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
+//    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
+    EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.der'));
 //    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
     EET.PFXPassword := 'eet';
     EET.ConnectTimeout := 2000;
@@ -167,7 +167,7 @@ begin
     eTrzba.Hlavicka.prvni_zaslani := False;
 //    eTrzba.Hlavicka.overeni := True;
 
-    eTrzba.Data.dic_popl := 'CZ1212121218';
+    eTrzba.Data.dic_popl := 'CZ00000019';
     eTrzba.Data.id_provoz := 273;
     eTrzba.Data.id_pokl := '/5546/RO24';
     eTrzba.Data.porad_cis := '0/6460/ZQ42';
@@ -272,7 +272,7 @@ begin
   Result := AOk;
   if ADepth = 0 then
     begin
-      synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine);
+      synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
     end;
 end;
 

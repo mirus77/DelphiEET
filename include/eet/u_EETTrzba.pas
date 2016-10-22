@@ -283,7 +283,7 @@ end;
 
 procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
 var
-  xmlDoc : IXMLDocument;
+  xmlDoc, xmlDocTemp : IXMLDocument;
   iNode : IXMLNode;
 begin
   if not FSigner.Active then
@@ -295,20 +295,29 @@ begin
       FSigner.Active := True;
     end;
 
+  xmlDocTemp := NewXMLDocument;
+  xmlDocTemp.Options  := [];
+  xmlDocTemp.LoadFromStream(SOAPRequest as TMemoryStream);
+
   xmlDoc := NewXMLDocument;
   xmlDoc.Options  := [];
-  xmlDoc.LoadFromStream(SOAPRequest as TMemoryStream);
-  iNode :=  xmlDoc.ChildNodes.FindNode(SSoapNameSpacePre + ':Envelope');
+  iNode := xmlDoc.AddChild('soap:Envelope');
+  iNode.DeclareNamespace('soap', 'http://schemas.xmlsoap.org/soap/envelope/');
+  iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
+  iNode.ChildNodes.Insert(0,xmlDocTemp.DocumentElement.ChildNodes.FindNode(SSoapNameSpacePre + ':Header'));
+  iNode := iNode.AddChild('soap:Body');
+  iNode.ChildNodes.Add(xmlDocTemp.DocumentElement.ChildNodes.FindNode(SSoapNameSpacePre + ':Body').ChildNodes[0]);
+
+  iNode :=  xmlDoc.ChildNodes.FindNode('soap:Envelope');
   if iNode <> nil then
     begin
-      iNode := iNode.ChildNodes.FindNode(SSoapNameSpacePre + ':Body');
+      iNode := iNode.ChildNodes.FindNode('soap:Body');
       if iNode <> nil then
         begin
-          iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
           iNode.Attributes['wsu:Id'] := 'id-TheBody';
         end;
     end;
-  iNode :=  xmlDoc.ChildNodes.FindNode(SSoapNameSpacePre + ':Envelope');
+  iNode :=  xmlDoc.ChildNodes.FindNode('soap:Envelope');
   if iNode <> nil then
     begin
       iNode := iNode.ChildNodes.FindNode( SSoapNameSpacePre + ':Header');
@@ -529,7 +538,6 @@ var
   SigTransForm : IXMLTransformType;
   SecTokenReference : IXMLSecurityTokenReferenceType;
   SecReference : u_wsse.IXMLReferenceType;
-
 begin
   // Security
   SecHeader := NewSecurity;
@@ -544,7 +552,7 @@ begin
   Signature.OwnerDocument.Options := [doNodeAutoCreate];
   Signature.SignedInfo.CanonicalizationMethod.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
   Signature.Id := 'id-TheSignature';
-  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:='soap';
+  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:= 'soap';
   Signature.SignedInfo.SignatureMethod.Algorithm:='http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
 
   SigReference := Signature.SignedInfo.Reference.Add;

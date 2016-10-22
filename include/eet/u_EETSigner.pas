@@ -7,6 +7,7 @@ uses Classes, libxml2, libxmlsec, SysUtils;
 Type
   TEETSignerKeyInfo = record
     Name : string;
+    Subject : string;
     SerialNumber : string;
     notValidBefore : TDateTime;
     notValidAfter : TDateTime;
@@ -27,6 +28,7 @@ Type
     procedure CheckActive;
     procedure CheckInactive;
     procedure ReadPrivKeyInfo;
+    function ExtractSubjectItem(aSubject, ItemName : string): string;
   public
     {:Nacita klice}
     property Active: Boolean read FActive write SetActive;
@@ -105,6 +107,7 @@ begin
   FActive := False;
   FVerifyCertIncluded := False;
   FPrivKeyInfo.Name := '';
+  FPrivKeyInfo.Subject := '';
   FPrivKeyInfo.notValidBefore := 0;
   FPrivKeyInfo.notValidAfter := 0;
 end;
@@ -120,15 +123,36 @@ begin
   inherited;
 end;
 
+function TEETSigner.ExtractSubjectItem(aSubject, ItemName: string): string;
+var
+  TempList : TStringList;
+begin
+  Result := '';
+  TempList:= TStringList.Create;
+  try
+    TempList.Delimiter := '/';
+    TempList.DelimitedText := aSubject;
+    if TempList.IndexOfName(ItemName) <> -1 then
+      Result := Trim(TempList.Values[ItemName]);
+  finally
+    TempList.Free;
+  end;
+end;
+
 function TEETSigner.GetRawCertDataAsBase64String: String;
 var
   Doc: xmlDocPtr;
-  Cur: xmlNodePtr;
+  Cur, CurData: xmlNodePtr;
   erCode: integer;
   keyInfoCtx: xmlSecKeyInfoCtxPtr;
   secKey: xmlSecKeyPtr;
   secKeyData : xmlSecKeyDataPtr;
+  sSubject : string;
+// for OpenSSL Section;
+//  iPos, iSize: integer;
+//  x509cert : pX509;
 begin
+  Result := '';
   secKey := nil; Doc := nil; keyInfoCtx := nil;
   CheckActive;
   try
@@ -144,6 +168,28 @@ begin
     if secKeyData = nil
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecKeyGetData']);
 
+    // OpenSSL section - start
+    {
+    iSize := xmlSecOpenSSLKeyDataX509GetCertsSize(secKeyData);
+    for iPos := 0 to iSize - 1 do
+      begin
+        x509cert := xmlSecOpenSSLKeyDataX509GetCert(secKeyData, iPos);
+        if x509cert <> nil then
+          begin
+            sSubject := '';
+            if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), sSubject) = 0 then
+              sSubject := ExtractSubjectItem(sSubject, 'CN');
+            if SameText(FPrivKeyInfo.Subject, sSubject) then
+              begin
+                Result := xmlSecOpenSSLX509CertBase64DerWrite(x509cert, 0);
+                Break;
+              end;
+          end;
+      end;
+    }
+    // OpenSSL section - end
+
+    // Independent xmlsec library section - start
     doc := xmlSecCreateTree(xmlCharPtr('Keys'), xmlSecNs);
     if doc = nil
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecCreateTree']);
@@ -152,11 +198,18 @@ begin
     if Cur = nil
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 1']);
 
-    if(nil = xmlSecAddChild(cur, xmlSecNodeKeyName, xmlSecDSigNs))
+    if (nil = xmlSecAddChild(cur, xmlSecNodeKeyName, xmlSecDSigNs))
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 2']);
 
-    if(nil = xmlSecAddChild(cur, secKeyData.id.dataNodeName, secKeyData.id.dataNodeNs))
+    CurData := xmlSecAddChild(cur, secKeyData.id.dataNodeName, secKeyData.id.dataNodeNs);
+    if (nil = CurData)
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 3']);
+
+    if (nil = xmlSecAddChild(curData, xmlSecNodeX509SubjectName, xmlSecDSigNs))
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 5']);
+
+    if (nil = xmlSecAddChild(curData, xmlSecNodeX509Certificate, xmlSecDSigNs))
+    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecAddChild 4']);
 
     keyInfoCtx.mode                 := xmlSecKeyInfoModeWrite;
     keyInfoCtx.base64LineSize       := 0; // no lineBreaks in X509Certificate
@@ -170,10 +223,23 @@ begin
     then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecFindNode : ' + string(xmlSecNodeX509Data)]);
 
     Cur := xmlSecFindNode(cur, xmlSecNodeX509Certificate, secKeyData.id.dataNodeNs);
-    if Cur = nil
-    then raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecFindNode : ' + string(xmlSecNodeX509Certificate)]);
+    if Cur <> nil then
+      begin
+        while Cur <> nil do
+          begin
+            if SameText(string(cur.name), string(xmlSecNodeX509Certificate)) then
+              Result := string(xmlNodeGetContent(Cur));
+            if SameText(string(cur.name), string(xmlSecNodeX509SubjectName)) then
+              sSubject := ExtractSubjectItem(StringReplace(string(xmlNodeGetContent(Cur)), ',', '/', [rfReplaceAll]), 'CN');
+            if SameText(FPrivKeyInfo.Subject, sSubject) then
+              Cur := nil; // break loop
+            if Cur <> nil then Cur := Cur.next;
+          end;
+      end
+    else
+      raise EEETSignerException.CreateFmt(sSignerGetRawData, ['xmlSecFindNode : ' + string(xmlSecNodeX509Certificate)]);
+    // Independent xmlsec library section - end
 
-    Result := string(xmlNodeGetContent(Cur));
   finally
     if doc <> nil
     then xmlFreeDoc(doc);
@@ -257,6 +323,7 @@ var
   x509cert : pX509;
   a_time : TDateTime;
   a_serialnumber : string;
+  a_subject : string;
 begin
   CheckActive;
 
@@ -286,6 +353,8 @@ begin
                    FPrivKeyInfo.notValidAfter := a_time;
                  if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
                    FPrivKeyInfo.SerialNumber :=a_serialnumber;
+                 if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), a_subject) = 0 then
+                   FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
                end;
           end;
 

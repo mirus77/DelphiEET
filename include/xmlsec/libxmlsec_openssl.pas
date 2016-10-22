@@ -27,6 +27,8 @@ function xmlSecOpenSSLAppKeysMngrCertLoadMemory(mngr: xmlSecKeysMngrPtr; const d
   format: xmlSecKeyDataFormat; type_: xmlSecKeyDataType): Longint; cdecl;
 function xmlSecOpenSSLKeyDataX509GetKlass(): xmlSecKeyDataId; cdecl;
 function xmlSecOpenSSLKeyDataX509GetKeyCert(data: xmlSecKeyDataPtr): PX509; cdecl;
+function xmlSecOpenSSLKeyDataX509GetCert(data: xmlSecKeyDataPtr; Idx : LongInt): PX509; cdecl;
+function xmlSecOpenSSLKeyDataX509GetCertsSize(data: xmlSecKeyDataPtr): LongInt; cdecl;
 {$ENDIF}  // static linking
 
 // internal macros
@@ -37,6 +39,8 @@ function xmlSecOpenSSLKeyDataX509Id: xmlSecKeyDataId;
 
 function xmlSecOpenSSLX509CertGetTime(asn1_time: PASN1_TIME; var res: TDateTime): Longint;
 function xmlSecOpenSSLX509CertGetSerialNumber(SN: pASN1_INTEGER; var res: string): Longint;
+function xmlSecOpenSSLX509CertGetSubject(Subj: pX509_NAME; var res: string): Longint;
+function xmlSecOpenSSLX509CertBase64DerWrite(cert : pX509; base64LineWrap : Integer): string;
 
 {$IFDEF DEBUG}
 procedure _xmlSecKeyDebugDump(Key: xmlSecKeyPtr; filename: xmlCharPtr);
@@ -50,6 +54,8 @@ var
   xmlSecOpenSSLAppKeysMngrCertLoadMemory : function (mngr: xmlSecKeysMngrPtr; const data: xmlSecBytePtr; dataSize: xmlSecSize; format: xmlSecKeyDataFormat; type_: xmlSecKeyDataType): Longint; cdecl;
   xmlSecOpenSSLKeyDataX509GetKlass : function (): xmlSecKeyDataId; cdecl;
   xmlSecOpenSSLKeyDataX509GetKeyCert : function (data: xmlSecKeyDataPtr): PX509; cdecl;
+  xmlSecOpenSSLKeyDataX509GetCert : function(data: xmlSecKeyDataPtr; Idx : LongInt): PX509 cdecl;
+  xmlSecOpenSSLKeyDataX509GetCertsSize : function(data: xmlSecKeyDataPtr): LongInt; cdecl;
 {$ENDIF}
 
 implementation
@@ -68,6 +74,8 @@ function xmlSecOpenSSLAppKeysMngrAddCertsFile; external LIBXMLSECOPENSSL_SO;
 function xmlSecOpenSSLAppKeysMngrCertLoadMemory; external LIBXMLSECOPENSSL_SO;
 function xmlSecOpenSSLKeyDataX509GetKlass; external LIBXMLSECOPENSSL_SO;
 function xmlSecOpenSSLKeyDataX509GetKeyCert; external LIBXMLSECOPENSSL_SO;
+function xmlSecOpenSSLKeyDataX509GetCert; external LIBXMLSECOPENSSL_SO;
+function xmlSecOpenSSLKeyDataX509GetCertsSize; external LIBXMLSECOPENSSL_SO;
 {$ENDIF}
 
 {$IFDEF _DYNAMIC_LOAD_XMLSEC}
@@ -236,6 +244,44 @@ begin
   res := BytesToHexString(SN.data, SN.length);
 end;
 
+function xmlSecOpenSSLX509CertGetSubject(Subj: pX509_NAME; var res: string): Longint;
+var
+  LOneLine: array[0..2048] of AnsiChar;
+begin
+  Result := 0;
+  if Subj = nil then
+    res := ''
+  else
+    res :=  string(X509_NAME_oneline(Subj, @LOneLine[0], SizeOf(LOneLine)))
+end;
+
+function xmlSecOpenSSLX509CertBase64DerWrite(cert : pX509; base64LineWrap : Integer): string;
+var
+  mem : pBIO;
+  p : xmlSecBytePtr;
+  size : LongInt;
+begin
+  Result := '';
+  if cert <> nil then
+    begin
+      mem := BIO_new(BIO_s_mem());
+      try
+        if mem <> nil then
+          begin
+            i2d_X509_bio(mem, cert);
+            BIO_flush(mem);
+            size := BIO_get_mem_data(mem, PAnsiChar(p));
+            if (size > 0) and (p <> nil) then
+              begin
+                Result := string(xmlSecBase64Encode(p, size, base64LineWrap));
+              end;
+          end;
+      finally
+        BIO_free_all(mem);
+      end;
+    end;
+end;
+
 {$IFDEF _DYNAMIC_LOAD_XMLSEC}
 function InitXMLSecOpenSSL(const path: string): Boolean;
 begin
@@ -253,6 +299,8 @@ begin
             xmlSecOpenSSLAppKeysMngrCertLoadMemory :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLAppKeysMngrCertLoadMemory');
             xmlSecOpenSSLKeyDataX509GetKlass :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetKlass');
             xmlSecOpenSSLKeyDataX509GetKeyCert :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetKeyCert');
+            xmlSecOpenSSLKeyDataX509GetCert := GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetCertsSize');
+            xmlSecOpenSSLKeyDataX509GetCertsSize :=  GetProcAddress(FXmlSecLibHandle, 'xmlSecOpenSSLKeyDataX509GetCertsSize');
           end;
       end;
 
@@ -277,6 +325,8 @@ begin
       xmlSecOpenSSLAppKeysMngrCertLoadMemory  := nil;
       xmlSecOpenSSLKeyDataX509GetKlass        := nil;
       xmlSecOpenSSLKeyDataX509GetKeyCert      := nil;
+      xmlSecOpenSSLKeyDataX509GetCert         := nil;
+      xmlSecOpenSSLKeyDataX509GetCertsSize    := nil;
     end;
     Result := FXmlSecLibHandle = 0;
   finally
