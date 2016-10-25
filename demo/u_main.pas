@@ -151,7 +151,9 @@ begin
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
+{$IFDEF USE_INDY}
     EET.OnVerifyPeer := VerifyPeer;
+{$ENDIF}
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
 //    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
@@ -267,6 +269,7 @@ begin
     synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
 end;
 
+{$IFDEF USE_INDY}
 function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
 begin
   Result := AOk;
@@ -275,5 +278,6 @@ begin
       synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
     end;
 end;
+{$ENDIF}
 
 end.
