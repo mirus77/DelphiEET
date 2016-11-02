@@ -13,12 +13,14 @@ Type
     notValidAfter : TDateTime;
   end;
 
+  TCERTrustedList = class;
+
   TEETSigner = class(TComponent)
   private
     FCertPassword: AnsiString;
     FActive: Boolean;
     FPFXStream: TMemoryStream; // stream s (PFX)
-    FCERStream: TMemoryStream; // stream s overovacim (CER)
+    FCERTrustedList : TCERTrustedList;   // stream list s overovacimi certifikaty (CER)
     FMngr: xmlSecKeysMngrPtr;
     FVerifyCertIncluded: Boolean;
     FPrivKeyInfo: TEETSignerKeyInfo;
@@ -41,9 +43,9 @@ Type
     {:Nacist PFX certifikat ze sreamu s pozaovanym heslem }
     procedure LoadPFXCertFromStream(PFXStream: TStream; const CertPassword: AnsiString);
     {:Nacist overovaci certifiat ye souboru (CER format)}
-    procedure LoadVerifyCertFromFileName(const CerFileName: TFileName);
+    function AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
     {:Nacist overovaci certifiat ze streamu (CER format)}
-    procedure LoadVerifyCertFromStream(const CerStream: TStream);
+    function AddTrustedCertFromStream(const CerStream: TStream) : integer;
     {:Vratit Certificate RAW Data (base64 string)}
     function GetRawCertDataAsBase64String(): String;
 
@@ -61,6 +63,15 @@ Type
   published
     property PrivKeyInfo : TEETSignerKeyInfo read FPrivKeyInfo;
 end;
+
+  TCERTrustedList = class(TList)
+  private
+  protected
+    procedure Notify(Ptr: Pointer; Action: TListNotification); override;
+  public
+    function AddCert(Stream : TMemoryStream): Integer;
+    function GetStream(Index: Integer): TMemoryStream;
+  end;
 
 implementation
 
@@ -93,7 +104,7 @@ end;
 
 procedure TEETSigner.ClearVerifyCert;
 begin
-  FCERStream.Clear;
+  FCERTrustedList.Clear;
 end;
 
 constructor TEETSigner.Create(AOwner: TComponent);
@@ -102,7 +113,7 @@ begin
   InitXMLSec;
   inherited Create(AOwner);
   FPFXStream := TMemoryStream.Create;
-  FCERStream := TMemoryStream.Create;
+  FCERTrustedList := TCERTrustedList.Create;
   FMngr := nil;
   FActive := False;
   FVerifyCertIncluded := False;
@@ -117,7 +128,7 @@ begin
   if Active
   then Active := False;
   FPFXStream.Free;
-  FCERStream.Free;
+  FCERTrustedList.Free;
   Dec(EETSignerCount);
   ShutDownXMLSec;
   inherited;
@@ -300,18 +311,24 @@ begin
   FCertPassword := CertPassword;
 end;
 
-procedure TEETSigner.LoadVerifyCertFromFileName(const CerFileName: TFileName);
+function TEETSigner.AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
+var
+  Stream : TMemoryStream;
 begin
   CheckInactive;
-  FCERStream.Clear;
-  FCERStream.LoadFromFile(CerFileName);
+  Stream := TMemoryStream.Create;
+  Stream.LoadFromFile(CerFileName);
+  Result := FCERTrustedList.AddCert(Stream);
 end;
 
-procedure TEETSigner.LoadVerifyCertFromStream(const CerStream: TStream);
+function TEETSigner.AddTrustedCertFromStream(const CerStream: TStream) : integer;
+var
+  Stream : TMemoryStream;
 begin
   CheckInactive;
-  FCERStream.Clear;
-  FCERStream.LoadFromStream(CerStream);
+  Stream := TMemoryStream.Create;
+  Stream.LoadFromStream(CerStream);
+  Result := FCERTrustedList.AddCert(Stream);
 end;
 
 procedure TEETSigner.ReadPrivKeyInfo;
@@ -339,26 +356,26 @@ begin
     if secKey = nil
     then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeysMngrFindKey']);
 
-        // read PrivKeyInfo
-        ItemCount := xmlSecPtrListGetSize(secKey.dataList);
-        for I := 0 to ItemCount - 1 do
-          begin
-            DataItem := xmlSecPtrListGetItem(secKey.dataList, I);
-             if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
-               begin
-                 x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
-                 if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
-                   FPrivKeyInfo.notValidBefore :=a_time;
-                 if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
-                   FPrivKeyInfo.notValidAfter := a_time;
-                 if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
-                   FPrivKeyInfo.SerialNumber :=a_serialnumber;
-                 if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), a_subject) = 0 then
-                   FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
-               end;
-          end;
+    // read PrivKeyInfo
+    ItemCount := xmlSecPtrListGetSize(secKey.dataList);
+    for I := 0 to ItemCount - 1 do
+      begin
+        DataItem := xmlSecPtrListGetItem(secKey.dataList, I);
+         if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
+           begin
+             x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
+             if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
+               FPrivKeyInfo.notValidBefore :=a_time;
+             if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
+               FPrivKeyInfo.notValidAfter := a_time;
+             if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
+               FPrivKeyInfo.SerialNumber :=a_serialnumber;
+             if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), a_subject) = 0 then
+               FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
+           end;
+      end;
 
-        FPrivKeyInfo.Name := String(secKey.name);
+    FPrivKeyInfo.Name := String(secKey.name);
   finally
     if keyInfoCtx <> nil
     then xmlSecKeyInfoCtxDestroy(keyInfoCtx);
@@ -375,6 +392,8 @@ var
 {$ENDIF}
   certkeyformat : xmlSecKeyDataFormat;
   certkeystring : AnsiString;
+  ms : TMemoryStream;
+  I: Integer;
 begin
   if Active = Value
   then Exit;
@@ -390,7 +409,7 @@ begin
       FMngr := nil;
     end;
     FPFXStream.Clear;
-    FCERStream.Clear;
+    FCERTrustedList.Clear;
     FActive := False;
     FreeXMLSecOpenSSL;
     Exit;
@@ -434,28 +453,32 @@ begin
       else raise EEETSignerException.Create(sSignerInvalidPFXCert);
 
       //load verify certificate
-      if FCERStream.Size > 0
+      if FCERTrustedList.Count > 0
       then begin
         certkeyformat := xmlSecKeyDataFormatCertDer;
 
-        SetLength(certkeystring, FCERStream.Size);
-        FCERStream.Seek(0, soFromBeginning);
-        FCERStream.Read(PAnsiChar(certkeystring)^, FCERStream.Size);
-        FCERStream.Seek(0, soFromBeginning);
-        if Pos(AnsiString('-BEGIN CERTIFICATE-'), certkeystring) > 0 then
-          certkeyformat := xmlSecKeyDataFormatCertPem;
+        for I := 0 to FCERTrustedList.Count - 1 do
+          begin
+            ms := FCERTrustedList.GetStream(I);
+            SetLength(certkeystring, ms.Size);
+            ms.Seek(0, soFromBeginning);
+            ms.Read(PAnsiChar(certkeystring)^, ms.Size);
+            ms.Seek(0, soFromBeginning);
+            if Pos(AnsiString('-BEGIN CERTIFICATE-'), certkeystring) > 0 then
+              certkeyformat := xmlSecKeyDataFormatCertPem;
 
-        if xmlSecCryptoAppKeysMngrCertLoadMemory(
-            FMngr,
-            FCERStream.Memory,
-            FCERStream.Size,
-            certkeyformat,
-            $100 {xmlSecKeyDataTypeTrusted} ) < 0
-        then  begin
-          FVerifyCertIncluded := False;
-          raise EEETSignerException.Create(sSignerInvalidVerifyCert)
-        end
-        else FVerifyCertIncluded := True;
+            if xmlSecCryptoAppKeysMngrCertLoadMemory(
+                FMngr,
+                ms.Memory,
+                ms.Size,
+                certkeyformat,
+                $100 {xmlSecKeyDataTypeTrusted} ) < 0
+            then  begin
+              FVerifyCertIncluded := False;
+              raise EEETSignerException.Create(sSignerInvalidVerifyCert)
+            end
+          end;
+        FVerifyCertIncluded := FCERTrustedList.Count > 0;
       end;
 
       FActive := True;
@@ -481,11 +504,10 @@ begin
     end;
   finally
     FCertPassword := '';
-    FCERStream.Clear;
+    FCERTrustedList.Clear;
     FPFXStream.Clear;
   end;
 end;
-
 
 procedure TEETSigner.ShutDownXMLSec;
 begin
@@ -736,6 +758,26 @@ begin
     if DsigCtx <> nil
     then xmlSecDSigCtxDestroy(DsigCtx);
   end;
+end;
+
+{ TCERTrustedList }
+
+function TCERTrustedList.AddCert(Stream: TMemoryStream): Integer;
+begin
+  Result := -1;
+  if Stream = nil then Exit;
+  Result := Add(Stream);
+end;
+
+function TCERTrustedList.GetStream(Index: Integer): TMemoryStream;
+begin
+  Result := TMemoryStream(Get(Index));
+end;
+
+procedure TCERTrustedList.Notify(Ptr: Pointer; Action: TListNotification);
+begin
+  if Action = lnDeleted then
+     TMemoryStream(Ptr).Free;
 end;
 
 end.

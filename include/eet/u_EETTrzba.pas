@@ -47,7 +47,6 @@ type
     FConnectTimeout: Integer;
     FReceiveTimeout: Integer;
     FValidResponse: Boolean;
-    FCERStream: TMemoryStream;
     FSendTimeout: Integer;
     FErrorCode: Integer;
     FErrorMessage: string;
@@ -61,6 +60,7 @@ type
     FSigner : TEETSigner;
     FPFXStream : TMemoryStream;
     FPFXPassword : string;
+    FCERTrustedList : TCERTrustedList;
     function GetEETRIO : TEETRIO;
     procedure SignMessage(SOAPRequest: TStream);
     procedure ValidateResponse(SOAPResponse: TStream);
@@ -75,9 +75,10 @@ type
     function HasVarovani(Odpoved : OdpovedType) : Boolean;
     procedure SaveToXML(const parameters: Trzba; const DestStream : TStream);
     procedure LoadFromXML(const parameters: Trzba; const SourceStream : TStream);
+    function AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
+    function AddTrustedCertFromStream(const CerStream: TStream) : integer;
   published
     property PFXStream : TMemoryStream read FPFXStream;
-    property CERStream : TMemoryStream read FCERStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
     property RootCertFile : string read FRootCertFile write FRootCertFile;
     property HttpsTrustName : string read FHttpsTrustName write FHttpsTrustName;
@@ -109,6 +110,24 @@ type
   end;
 
 
+function TEETTrzba.AddTrustedCertFromFileName(const CerFileName: TFileName): integer;
+var
+  Stream : TMemoryStream;
+begin
+  Stream := TMemoryStream.Create;
+  Stream.LoadFromFile(CerFileName);
+  Result := FCERTrustedList.AddCert(Stream);
+end;
+
+function TEETTrzba.AddTrustedCertFromStream(const CerStream: TStream): integer;
+var
+  Stream : TMemoryStream;
+begin
+  Stream := TMemoryStream.Create;
+  Stream.LoadFromStream(CerStream);
+  Result := FCERTrustedList.AddCert(Stream);
+end;
+
 constructor TEETTrzba.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -118,7 +137,7 @@ begin
   FSigner := TEETSigner.Create(nil);
   FPFXPassword := '';
   FPFXStream := TMemoryStream.Create;
-  FCERStream := TMemoryStream.Create;
+  FCERTrustedList := TCERTrustedList.Create;
   FHttpsTrustName := 'www.eet.cz';
   FConnectTimeout := 2000;
   FSendTimeout := 3000;
@@ -128,8 +147,8 @@ end;
 destructor TEETTrzba.Destroy;
 begin
   FSigner.Free;
+  FCERTrustedList.Free;
   FPFXStream.Free;
-  FCERStream.Free;
   CoUnInitialize;
   inherited;
 end;
@@ -151,6 +170,8 @@ begin
 end;
 
 procedure TEETTrzba.Initialize;
+var
+  I: Integer;
 begin
   if IsInitialized then exit;
 
@@ -161,8 +182,8 @@ begin
     begin
       if FPFXStream.Size > 0 then
         FSigner.LoadPFXCertFromStream(FPFXStream,AnsiString(FPFXPassword));
-      if FPFXStream.Size > 0 then
-        FSigner.LoadVerifyCertFromStream(FCERStream);
+      for I := 0 to FCERTrustedList.Count - 1 do
+        FSigner.AddTrustedCertFromStream(FCERTrustedList.GetStream(I));
       FSigner.Active := True;
     end;
 
@@ -285,13 +306,14 @@ procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
 var
   xmlDoc, xmlDocTemp : IXMLDocument;
   iNode : IXMLNode;
+  I : integer;
 begin
   if not FSigner.Active then
     begin
       if FPFXStream.Size > 0 then
         FSigner.LoadPFXCertFromStream(FPFXStream,AnsiString(FPFXPassword));
-      if FPFXStream.Size > 0 then
-        FSigner.LoadVerifyCertFromStream(FCERStream);
+      for I := 0 to FCERTrustedList.Count - 1 do
+        FSigner.AddTrustedCertFromStream(FCERTrustedList.GetStream(I));
       FSigner.Active := True;
     end;
 

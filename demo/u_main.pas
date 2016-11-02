@@ -110,7 +110,8 @@ begin
   ms := TMemoryStream.Create;
   try
     lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
-    lSigner.LoadVerifyCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms,'Body', 'Id') then
@@ -156,8 +157,8 @@ begin
 {$ENDIF}
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
-//    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\01000003.p12'));
-    EET.CerStream.LoadFromFile(ExpandFileName('..\cert\trusted_CA.der'));
+    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
+    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
 //    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
     EET.PFXPassword := 'eet';
     EET.ConnectTimeout := 2000;
