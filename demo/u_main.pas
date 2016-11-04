@@ -112,6 +112,7 @@ begin
     lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
     lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
     lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms,'Body', 'Id') then
@@ -150,6 +151,7 @@ begin
   ms := TMemoryStream.Create;
   try
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
+//    EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
 {$IFDEF USE_INDY}
@@ -159,6 +161,7 @@ begin
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
+    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
 //    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
     EET.PFXPassword := 'eet';
     EET.ConnectTimeout := 2000;
