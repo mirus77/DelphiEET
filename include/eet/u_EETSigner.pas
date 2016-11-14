@@ -51,10 +51,14 @@ Type
 
     {:Podpis XML dokumentu.
 
-    Podepisuje XML dkment a vraci True pokud je uspesne podepsan}
+    Podepisuje XML dokment a vraci True pokud je uspesne podepsan}
     function SignXML(XMLStream: TMemoryStream): Boolean;
     {:Podepsuje retezec a vraci otisk}
     function SignString(const s: string): AnsiString;
+    {:Vraci otisk}
+    function MakeBKP(const Data: string): String;
+    {:Vraci otisk}
+    function MakePKP(const Data: string): String;
     {:Overeni XML ve streamu}
     function VerifyXML(XMLSTream: TMemoryStream;
       const SignedNodeName: UTF8String = ''; const IdProp: UTF8String = 'wsu:Id'): boolean;
@@ -79,6 +83,7 @@ uses
   {$IFDEF DEBUG}
   vcruntime ,
   {$ENDIF}
+  SZCodeBaseX, synacode,
   u_EETSignerExceptions, StrUtils, System.DateUtils, libxmlsec_openssl, libeay32;
 
 const
@@ -309,6 +314,46 @@ begin
   FPFXStream.Clear;
   FPFXStream.LoadFromStream(PFXStream);
   FCertPassword := CertPassword;
+end;
+
+function TEETSigner.MakeBKP(const Data: string): String;
+var
+  buf : AnsiString;
+  I : Integer;
+
+  function FormatBKP(Value : string): string;
+  begin
+    Result := '';
+    I := 1;
+    while I <= Length(Value) do
+      begin
+        Result := Result + Value[I];
+        if (I mod 8 = 0) and (I < Length(Value)) then
+          Result := Result + '-';
+        Inc(I);
+      end;
+  end;
+
+begin
+ // generovat PKP
+  buf := SignString(Data);
+  if Length(buf) > 0 then
+    begin
+      // generovat BKP z puvodniho cisteho podpisu retezce
+      Result := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
+    end;
+end;
+
+function TEETSigner.MakePKP(const Data: string): String;
+var
+  buf : AnsiString;
+begin
+ // generovat PKP
+  buf := SignString(Data);
+  if Length(buf) > 0 then
+    begin
+      Result := string(EncodeBase64(buf));
+    end;
 end;
 
 function TEETSigner.AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;

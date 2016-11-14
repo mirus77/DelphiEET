@@ -98,7 +98,7 @@ type
 
 implementation
 
-uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, synacode, SZCodeBaseX, Soap.SOAPConst, DateUtils, TimeSpan;
+uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, Soap.SOAPConst, DateUtils, TimeSpan;
 
 type
   TEETHeader = class(TSOAPHeader)
@@ -362,8 +362,6 @@ end;
 
 function TEETTrzba.SignTrzba(const parameters: Trzba): Boolean;
 var
-  buf: AnsiString;
-  I : integer;
   sPKPData : string;
 
   function DateTimeToXMLTime(Value: TDateTime): string;
@@ -382,19 +380,6 @@ var
                                          Abs(Bias) div MinsPerHour,
                                          Abs(Bias) mod MinsPerHour]);
     end
-  end;
-
-  function FormatBKP(Value : string): string;
-  begin
-    Result := '';
-    I := 1;
-    while I <= Length(Value) do
-      begin
-        Result := Result + Value[I];
-        if (I mod 8 = 0) and (I < Length(Value)) then
-          Result := Result + '-';
-        Inc(I);
-      end;
   end;
 
 begin
@@ -423,13 +408,9 @@ begin
   sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
 
   // generovat PKP
-  buf := FSigner.SignString(sPKPData);
-  if Length(buf) > 0 then
-    begin
-      parameters.KontrolniKody.pkp.Text := string(EncodeBase64(buf));
-      // generovat BKP z puvodniho cisteho podpisu retezce
-      parameters.KontrolniKody.bkp.Text := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
-    end;
+  parameters.KontrolniKody.pkp.Text := FSigner.MakePKP(sPKPData);
+  // generovat BKP
+  parameters.KontrolniKody.bkp.Text := FSigner.MakeBKP(sPKPData);
 
   Result := parameters.KontrolniKody.pkp.Text <> ''
 end;
