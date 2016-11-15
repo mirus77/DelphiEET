@@ -4,13 +4,13 @@ interface
 
 uses
   Windows,System.SysUtils, System.Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, Soap.WebNode, Soap.OpConvertOptions, Soap.OPToSOAPDomConv,
+  SOAPHTTPTrans, WebNode, Soap.OpConvertOptions, OPToSOAPDomConv,
   {$IFDEF USE_INDY}
     IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
   {$ELSE}
     WinInet,
   {$ENDIF}
-  ActiveX, u_EETServiceSOAP, Xml.XMLDoc, Xml.XMLIntf, u_EETSigner;
+  ActiveX, u_EETServiceSOAP, XMLDoc, XMLIntf, u_EETSigner;
 
 type
   TEETTrzba = class;
@@ -98,8 +98,13 @@ type
 
 implementation
 
-uses StrUtils, u_wsse, u_wsse_utils, u_xmldsigcoreschema, Soap.SOAPConst, DateUtils, TimeSpan;
+uses StrUtils,
+{$IFNDEF USE_LIBEET}
+   u_wsse, u_wsse_utils, u_xmldsigcoreschema, SOAPConst,
+{$ENDIF}
+   DateUtils, TimeSpan;
 
+{$IFNDEF USE_LIBEET}
 type
   TEETHeader = class(TSOAPHeader)
   public
@@ -108,7 +113,7 @@ type
                             const NodeName, NodeNamespace, ChildNamespace: InvString; ObjConvOpts: TObjectConvertOptions;
                             out RefID: InvString): IXMLNode; override;
   end;
-
+{$ENDIF}
 
 function TEETTrzba.AddTrustedCertFromFileName(const CerFileName: TFileName): integer;
 var
@@ -252,7 +257,9 @@ end;
 function TEETTrzba.OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean): Odpoved;
 var
   Service : EET;
+{$IFNDEF USE_LIBEET}
   Hdr : TEETHeader;
+{$ENDIF}
 begin
   FValidResponse := True;
   FErrorCode := 0;
@@ -260,10 +267,11 @@ begin
   Result := nil;
 
   Service := GetEET(False, URL, GetEETRIO);
+{$IFNDEF USE_LIBEET}
   Hdr := TEETHeader.Create;
    try
      (Service as ISOAPHeaders).Send(Hdr); { add the header to outgoing message }
-
+{$ENDIF}
      if not SendOnly then SignTrzba(parameters);
 
      try
@@ -275,9 +283,11 @@ begin
            FErrorMessage := E.Message;
          end;
      end;
+{$IFNDEF USE_LIBEET}
    finally
      Hdr.Free;
    end;
+{$ENDIF}
 end;
 
 procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
@@ -304,8 +314,10 @@ end;
 
 procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
 var
+{$IFNDEF USE_LIBEET}
   xmlDoc, xmlDocTemp : IXMLDocument;
   iNode : IXMLNode;
+{$ENDIF}
   I : integer;
 begin
   if not FSigner.Active then
@@ -317,6 +329,7 @@ begin
       FSigner.Active := True;
     end;
 
+{$IFNDEF USE_LIBEET}
   xmlDocTemp := NewXMLDocument;
   xmlDocTemp.Options  := [];
   xmlDocTemp.LoadFromStream(SOAPRequest as TMemoryStream);
@@ -354,9 +367,10 @@ begin
             end;
         end;
     end;
-
   (SOAPRequest as TMemoryStream).Clear;
   xmlDoc.SaveToStream(SOAPRequest as TMemoryStream);
+{$ENDIF}
+
   FSigner.SignXML(SOAPRequest as TMemoryStream);
 end;
 
@@ -531,7 +545,7 @@ begin
 end;
 
 { TEETHeader }
-
+{$IFNDEF USE_LIBEET}
 function TEETHeader.ObjectToSOAP(RootNode, ParentNode: IXMLNode; const ObjConverter: IObjConverter; const NodeName, NodeNamespace,
   ChildNamespace: InvString; ObjConvOpts: TObjectConvertOptions; out RefID: InvString): IXMLNode;
 var
@@ -589,5 +603,6 @@ begin
 
   ParentNode.ChildNodes.Add(SecHeader);
 end;
+{$ENDIF}
 
 end.

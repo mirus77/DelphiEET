@@ -3,10 +3,10 @@ unit vcruntime;
 interface
 
 const
-{$IFDEF USE_UCRT_LIBS}
-  LIBMSVCRT   = 'ucrtbase.dll'; // Visual Studio 14.0 (2015) and newer
+{$IFDEF USE_LIBEET}
+  LIBMSVCRT   = 'msvcr120.dll'; // Visual Studio 2013
 {$ELSE}
-  LIBMSVCRT   = 'msvcrt.dll';   // Visual Studio 2013 and below
+  LIBMSVCRT   = 'msvcrt.dll';
 {$ENDIF}
 
 type

@@ -2,7 +2,13 @@ unit u_EETSigner;
 
 interface
 
-uses Classes, libxml2, libxmlsec, SysUtils;
+uses Classes,
+{$IFDEF USE_LIBEET}
+u_libeet,
+{$ELSE}
+libxml2, libxmlsec,
+{$ENDIF}
+SysUtils;
 
 Type
   TEETSignerKeyInfo = record
@@ -21,7 +27,9 @@ Type
     FActive: Boolean;
     FPFXStream: TMemoryStream; // stream s (PFX)
     FCERTrustedList : TCERTrustedList;   // stream list s overovacimi certifikaty (CER)
+{$IFNDEF USE_LIBEET}
     FMngr: xmlSecKeysMngrPtr;
+{$ENDIF}
     FVerifyCertIncluded: Boolean;
     FPrivKeyInfo: TEETSignerKeyInfo;
     procedure InitXMLSec;
@@ -60,7 +68,7 @@ Type
     {:Vraci otisk}
     function MakePKP(const Data: string): String;
     {:Overeni XML ve streamu}
-    function VerifyXML(XMLSTream: TMemoryStream;
+    function VerifyXML(XMLStream: TMemoryStream;
       const SignedNodeName: UTF8String = ''; const IdProp: UTF8String = 'wsu:Id'): boolean;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
@@ -80,15 +88,20 @@ end;
 implementation
 
 uses
+  StrUtils, DateUtils,
+  {$IFNDEF USE_LIBEET}
+  SZCodeBaseX, synacode, libxmlsec_openssl, libeay32,
   {$IFDEF DEBUG}
   vcruntime ,
   {$ENDIF}
-  SZCodeBaseX, synacode,
-  u_EETSignerExceptions, StrUtils, System.DateUtils, libxmlsec_openssl, libeay32;
+  {$ENDIF}
+  u_EETSignerExceptions ;
 
+{$IFNDEF USE_LIBEET}
 const
   PFXCERT_KEYNAME:PAnsiChar   = 'p';
   FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
+{$ENDIF}
 
 var
   EETSignerCount: Integer = 0;
@@ -119,7 +132,9 @@ begin
   inherited Create(AOwner);
   FPFXStream := TMemoryStream.Create;
   FCERTrustedList := TCERTrustedList.Create;
+  {$IFNDEF USE_LIBEET}
   FMngr := nil;
+  {$ENDIF}
   FActive := False;
   FVerifyCertIncluded := False;
   FPrivKeyInfo.Name := '';
@@ -156,6 +171,7 @@ begin
 end;
 
 function TEETSigner.GetRawCertDataAsBase64String: String;
+{$IFNDEF USE_LIBEET}
 var
   Doc: xmlDocPtr;
   Cur, CurData: xmlNodePtr;
@@ -167,8 +183,10 @@ var
 // for OpenSSL Section;
 //  iPos, iSize: integer;
 //  x509cert : pX509;
+{$ENDIF}
 begin
   Result := '';
+{$IFNDEF USE_LIBEET}
   secKey := nil; Doc := nil; keyInfoCtx := nil;
   CheckActive;
   try
@@ -264,13 +282,14 @@ begin
     if secKey <> nil
     then xmlSecKeyDestroy(secKey);
   end;
+{$ENDIF}
 end;
 
 procedure TEETSigner.InitXMLSec;
 begin
   if EETSignerCount > 1
   then Exit;
-
+{$IFNDEF USE_LIBEET}
   xmlInitParser();
   __xmlLoadExtDtdDefaultValue^ := XML_DETECT_IDS or XML_COMPLETE_ATTRS;
   xmlSubstituteEntitiesDefault(1);
@@ -294,6 +313,11 @@ begin
 
   if (xmlSecCryptoInit() < 0)
   then raise EEETSignerException.Create(sSignerXmlSecInitError);
+{$ELSE}
+  InitLibEETSigner('');
+  if (eetSignerInit < 0)
+  then raise EEETSignerException.Create(sSignerXmlSecInitError);
+{$ENDIF}
 end;
 
 procedure TEETSigner.LoadPFXCertFromFile(const PFXFileName: TFileName; const CertPassword: AnsiString);
@@ -317,10 +341,13 @@ begin
 end;
 
 function TEETSigner.MakeBKP(const Data: string): String;
+{$IFNDEF USE_LIBEET}
 var
   buf : AnsiString;
   I : Integer;
+{$ENDIF}
 
+{$IFNDEF USE_LIBEET}
   function FormatBKP(Value : string): string;
   begin
     Result := '';
@@ -333,8 +360,11 @@ var
         Inc(I);
       end;
   end;
+{$ENDIF}
 
 begin
+{$IFNDEF USE_LIBEET}
+  Result := '';
  // generovat PKP
   buf := SignString(Data);
   if Length(buf) > 0 then
@@ -342,18 +372,28 @@ begin
       // generovat BKP z puvodniho cisteho podpisu retezce
       Result := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
     end;
+{$ELSE}
+  Result := eetSignerMakeBKP(Data);
+{$ENDIF}
 end;
 
 function TEETSigner.MakePKP(const Data: string): String;
+{$IFNDEF USE_LIBEET}
 var
   buf : AnsiString;
+{$ENDIF}
 begin
+{$IFNDEF USE_LIBEET}
+  Result := '';
  // generovat PKP
   buf := SignString(Data);
   if Length(buf) > 0 then
     begin
       Result := string(EncodeBase64(buf));
     end;
+{$ELSE}
+  Result := eetSignerMakePKP(Data);
+{$ENDIF}
 end;
 
 function TEETSigner.AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
@@ -377,6 +417,7 @@ begin
 end;
 
 procedure TEETSigner.ReadPrivKeyInfo;
+{$IFNDEF USE_LIBEET}
 var
   keyInfoCtx: xmlSecKeyInfoCtxPtr;
   secKey: xmlSecKeyPtr;
@@ -386,12 +427,13 @@ var
   a_time : TDateTime;
   a_serialnumber : string;
   a_subject : string;
+{$ELSE}
+{$ENDIF}
 begin
   CheckActive;
-
+{$IFNDEF USE_LIBEET}
   keyInfoCtx := nil;
   secKey := nil;
-
   try
     keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
     if keyInfoCtx = nil
@@ -427,40 +469,53 @@ begin
     if secKey <> nil
     then xmlSecKeyDestroy(secKey);
   end;
+{$ELSE}
+{$ENDIF}
 end;
 
 procedure TEETSigner.SetActive(const Value: Boolean);
 var
+  ms : TMemoryStream;
+  I: Integer;
+{$IFNDEF USE_LIBEET}
   Key: xmlSecKeyPtr;
 {$IFDEF DEBUG}
   keysfilename : AnsiString;
 {$ENDIF}
   certkeyformat : xmlSecKeyDataFormat;
   certkeystring : AnsiString;
-  ms : TMemoryStream;
-  I: Integer;
+{$ELSE}
+{$ENDIF}
 begin
   if Active = Value
   then Exit;
 
+{$IFNDEF USE_LIBEET}
   Key := nil;
+{$ENDIF}
 
   if FActive // pokud je aktivni, tak uklidit
   then begin
     FCertPassword := '';
+{$IFNDEF USE_LIBEET}
     if FMngr <> nil
     then begin
       xmlSecKeysMngrDestroy(FMngr);
       FMngr := nil;
     end;
+    FreeXMLSecOpenSSL;
+{$ELSE}
+    eetSignerCleanUp;
+{$ENDIF}
     FPFXStream.Clear;
     FCERTrustedList.Clear;
     FActive := False;
-    FreeXMLSecOpenSSL;
     Exit;
   end;
 
+{$IFNDEF USE_LIBEET}
   if not InitXMLSecOpenSSL then raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
+{$ENDIF}
 
   if FCertPassword = '' // mora biti password
   then raise EEETSignerException.Create(sSignerNoPassword);
@@ -476,6 +531,7 @@ begin
         FPrivKeyInfo.notValidBefore := 0;
         FPrivKeyInfo.notValidAfter := 0;
 
+        {$IFNDEF USE_LIBEET}
         FMngr := xmlSecKeysMngrCreate();
         if (FMngr = nil) or (xmlSecCryptoAppDefaultKeysMngrInit(FMngr) <> 0)
         then raise EEETSignerException.Create(sSignerKeyMngrCreateFail);
@@ -494,17 +550,25 @@ begin
         if (xmlSecCryptoAppDefaultKeysMngrAdoptKey(FMngr, Key) <> 0)
         then raise EEETSignerException.Create(sSignerInvalidPFXCert)
         else Key := nil;
+        {$ELSE}
+        if (eetSignerLoadPFXKeyMemory(FPFXStream.Memory,FPFXStream.Size,string(FCertPassword)) < 0)
+        then
+          raise EEETSignerException.Create(sSignerInvalidPFXCert);
+        {$ENDIF}
       end
       else raise EEETSignerException.Create(sSignerInvalidPFXCert);
 
       //load verify certificate
       if FCERTrustedList.Count > 0
       then begin
+        {$IFNDEF USE_LIBEET}
         certkeyformat := xmlSecKeyDataFormatCertDer;
+        {$ENDIF}
 
         for I := 0 to FCERTrustedList.Count - 1 do
           begin
             ms := FCERTrustedList.GetStream(I);
+            {$IFNDEF USE_LIBEET}
             SetLength(certkeystring, ms.Size);
             ms.Seek(0, soFromBeginning);
             ms.Read(PAnsiChar(certkeystring)^, ms.Size);
@@ -522,22 +586,32 @@ begin
               FVerifyCertIncluded := False;
               raise EEETSignerException.Create(sSignerInvalidVerifyCert)
             end
+            {$ELSE}
+            if (eetSignerAddTrustedCertMemory(ms.Memory, ms.Size) < 0)
+            then  begin
+              FVerifyCertIncluded := False;
+              raise EEETSignerException.Create(sSignerInvalidVerifyCert)
+            end
+            {$ENDIF}
           end;
         FVerifyCertIncluded := FCERTrustedList.Count > 0;
       end;
 
       FActive := True;
 
+      {$IFNDEF USE_LIBEET}
       {$IFDEF DEBUG}
       keysfilename:= 'keys.xml';
       if xmlSecCryptoAppDefaultKeysMngrSave(FMngr,@keysfilename[1],$FFFF) < 0 then
          raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
+      {$ENDIF}
       {$ENDIF}
 
       ReadPrivKeyInfo;
     except
       FActive := False;
       FVerifyCertIncluded := False;
+      {$IFNDEF USE_LIBEET}
       if Key <> nil
       then xmlSecKeyDestroy(Key);
       if FMngr <> nil
@@ -545,6 +619,9 @@ begin
         xmlSecKeysMngrDestroy(FMngr);
         FMngr := nil;
       end;
+      {$ELSE}
+      eetSignerCleanUp;
+      {$ENDIF}
       raise;
     end;
   finally
@@ -558,13 +635,18 @@ procedure TEETSigner.ShutDownXMLSec;
 begin
   if EETSignerCount = 0 then
   begin
+{$IFNDEF USE_LIBEET}
     xmlSecCryptoShutdown();
     xmlSecCryptoAppShutdown();
     xmlSecShutdown();
+{$ELSE}
+    eetSignerShutdown;
+{$ENDIF}
   end;
 end;
 
 function TEETSigner.SignString(const s: string): AnsiString;
+{$IFNDEF USE_LIBEET}
 const
   SIGSIZE = 256;
 var
@@ -575,10 +657,12 @@ var
   bufSz: Integer;
   keyInfoCtx: xmlSecKeyInfoCtxPtr;
   secKey: xmlSecKeyPtr;
+{$ENDIF}
 begin
   Result := '';
   CheckActive;
 
+{$IFNDEF USE_LIBEET}
   new(TransCtx);
   keyInfoCtx := nil;
   secKey := nil;
@@ -625,17 +709,25 @@ begin
     if secKey <> nil
     then xmlSecKeyDestroy(secKey);
   end;
+{$ELSE}
+  Result := eetSignerSignString(s);
+{$ENDIF}
 end;
 
 function TEETSigner.SignXML(XMLStream: TMemoryStream): Boolean;
 var
+{$IFNDEF USE_LIBEET}
   Doc: xmlDocPtr;
   Node, BodyNode: xmlNodePtr;
   Buf: PUTF8String;
   BufSz: integer;
   erCode: integer;
   DSigCtx: xmlSecDSigCtxPtr;
+{$ELSE}
+  output : ansistring;
+{$ENDIF}
 
+{$IFNDEF USE_LIBEET}
   procedure RegisterID(xmlNode : xmlNodePtr; idName : xmlCharPtr);
   var
     attr : xmlAttrPtr;
@@ -664,12 +756,16 @@ var
     {* and do not forget to cleanup *}
     xmlFree(name);
   end;
+{$ENDIF}
+
 begin
   CheckActive;
+
   {$BOOLEVAL OFF}
   if (XMLStream = nil) or (XMLStream.Size = 0)
   then raise EEETSignerException.Create(sSignerEmptyXML);
 
+{$IFNDEF USE_LIBEET}
   Doc := nil; Node := nil;
   DSigCtx := xmlSecDSigCtxCreate(FMngr);
   try
@@ -707,9 +803,19 @@ begin
     then xmlFreeDoc(Doc);
     xmlSecDSigCtxDestroy(DSigCtx);
   end;
+{$ELSE}
+  Result := (eetSignerSignRequest(XMLStream.Memory, XMLStream.Size, output) = 0);
+  if Result then
+    begin
+      XMLStream.SetSize(Length(output));
+      XMLStream.Position := 0;
+      XMLStream.WriteBuffer(@output[1], Length(output));
+    end;
+{$ENDIF}
 end;
 
-function TEETSigner.VerifyXML(XMLSTream: TMemoryStream; const SignedNodeName, IdProp: UTF8String): boolean;
+function TEETSigner.VerifyXML(XMLStream: TMemoryStream; const SignedNodeName, IdProp: UTF8String): boolean;
+{$IFNDEF USE_LIBEET}
 var
   Doc: xmlDocPtr;
   Node, SignatureNode: xmlNodePtr;
@@ -718,9 +824,10 @@ var
   DsigCtx: xmlSecDSigCtxPtr;
   Attr: xmlAttrPtr;
   IdVal: AnsiString;
+{$ENDIF}
 begin
   CheckActive;
-
+{$IFNDEF USE_LIBEET}
   Doc := nil; DsigCtx := nil; {Attr := nil;}
   Result := False;
   try
@@ -803,6 +910,9 @@ begin
     if DsigCtx <> nil
     then xmlSecDSigCtxDestroy(DsigCtx);
   end;
+{$ELSE}
+  Result := (eetSignerVerifyResponse(XMLStream.Memory, XMLStream.Size) = 1);
+{$ENDIF}
 end;
 
 { TCERTrustedList }
