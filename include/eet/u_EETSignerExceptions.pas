@@ -5,13 +5,13 @@ uses SysUtils;
 
 resourcestring
 
-sXMLNotXML = 'Pøijmutá odpoveï není XML';
-sXMLEmpty = 'XML zpráva je prazdná';
+sXMLNotXML = 'Pøijmutá odpovìï není XML';
+sXMLEmpty = 'XML zpráva je prázdná';
 sXMLURIEmpty = 'URI pro hlášení EET není vyplnìna';
 sXMLInvalidSignature = 'Neplatný digitalní podpis';
-sSignerUnassigned = 'Signer neni definován';
-sSignerInactive   = 'Signer neni aktivován';
-sSignerActive   = 'Signer je jiz aktivován';
+sSignerUnassigned = 'EETSigner neni definován';
+sSignerInactive   = 'EETSigner neni aktivován';
+sSignerActive   = 'EETSigner je již aktivován';
 sSignerNoPassword = 'Není zadáno heslo k certifikátu';
 //sSignerNoCert = 'Uložištì cerfikátù neobsahuje certifikáty';
 sSignerInvalidVerifyCert = 'Certifikát ovìøení není platný';

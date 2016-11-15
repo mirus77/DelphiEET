@@ -4,11 +4,11 @@ interface
 
 uses Classes,
 {$IFDEF USE_LIBEET}
-u_libeet,
+     u_libeet,
 {$ELSE}
-libxml2, libxmlsec,
+     libxml2, libxmlsec,
 {$ENDIF}
-SysUtils;
+     SysUtils;
 
 Type
   TEETSignerKeyInfo = record

@@ -532,6 +532,7 @@ procedure TEETRIO.HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData
 begin
 {$IFDEF USE_INDY}
   TIdHTTP(AData).ConnectTimeout := AHTTPReqResp.ConnectTimeout;
+  TIdHTTP(AData).HTTPOptions := TIdHTTP(AData).HTTPOptions + [hoKeepOrigProtocol];
   if TIdHTTP(AData).IOHandler is TIdSSLIOHandlerSocketOpenSSL then
     if Assigned(FEET) then
       if FEET.RootCertFile <> '' then

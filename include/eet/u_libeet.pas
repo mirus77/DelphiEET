@@ -7,6 +7,9 @@ interface
 
 const
   LIBEET_SO = 'libeetsigner.dll';
+  LIBEET_SOd = 'libeetsignerd.dll';
+  LIBEET_SO64 = 'libeetsigner64.dll';
+  LIBEET_SO64d = 'libeetsigner64d.dll';
 
 type
   time_t = Longint;
@@ -78,7 +81,7 @@ type
   eetSignerCryptoVersionFunc = function() : xmlCharPtr; cdecl;
   eetSignerCryptoVersionFuncPtr = ^eetSignerCryptoVersionFunc;
 
-  function InitLibEETSigner(const path: string = ''): Boolean;
+  function InitLibEETSigner(const path: string = ''; libname : string = ''): Boolean;
 
   function FreeLibEETSigner: Boolean;
 
@@ -106,7 +109,7 @@ type
 implementation
 
 uses
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
   SyncObjs, SysUtils;
@@ -115,11 +118,17 @@ var
   FlibeetHandle: THandle;
   Lock: TCriticalSection;
   ReferenceCount: Integer = 0;
+  curLibName : LPCWSTR = '';
 
 procedure CheckForNil(ptr: Pointer; name:string);
 begin
   if not Assigned(ptr) then
-    raise Exception.Create('"' + name + '" could not be loaded from the dynamic library ' + LIBEET_SO);
+    raise Exception.Create('"' + name + '" could not be loaded from the dynamic library ' + curLibName);
+end;
+
+function _GetProcAddress(hModule: HMODULE; lpProcName: LPCSTR) : FARPROC;
+begin
+  Result := GetProcAddress(hModule, lpProcName);
 end;
 
 var
@@ -321,7 +330,7 @@ begin
   Result := string(peetSignerCryptoVersion());
 end;
 
-function InitLibEETSigner(const path: string = ''): Boolean;
+function InitLibEETSigner(const path : string; libname : string ): Boolean;
 begin
   Lock.Enter;
   try
@@ -330,32 +339,49 @@ begin
       begin
         if path <> '' then
           SetDllDirectory(PChar(path));
-        FlibeetHandle := LoadLibrary(LIBEET_SO);
+        if libname <> '' then
+          curLibName := LPCWSTR(libname)
+        else
+          begin
+            curLibName := LIBEET_SO;
+            {$IFDEF DEBUG}
+            if IsConsole then
+              curLibName := LIBEET_SOd;
+            {$ENDIF}
+            {$IFDEF WIN64}
+            curLibName := LIBEET_SO64;
+            {$IFDEF DEBUG}
+            if IsConsole then
+              curLibName := LIBEET_SO64d;
+            {$ENDIF}
+            {$ENDIF}
+          end;
+        FlibeetHandle := LoadLibrary(curLibName);
         if FlibeetHandle <> 0 then
           begin
-            peetFree := GetProcAddress(FlibeetHandle, 'eetFree');
-            peetMalloc := GetProcAddress(FlibeetHandle, 'eetMalloc');
-            peetCalloc := GetProcAddress(FlibeetHandle, 'eetCalloc');
+            peetFree := _GetProcAddress(FlibeetHandle, 'eetFree');
+            peetMalloc := _GetProcAddress(FlibeetHandle, 'eetMalloc');
+            peetCalloc := _GetProcAddress(FlibeetHandle, 'eetCalloc');
 
-            peetSignerInit := GetProcAddress(FlibeetHandle, 'eetSignerInit');
-            peetSignerCleanUp := GetProcAddress(FlibeetHandle, 'eetSignerCleanUp');
-            peetSignerShutdown := GetProcAddress(FlibeetHandle, 'eetSignerShutdown');
+            peetSignerInit := _GetProcAddress(FlibeetHandle, 'eetSignerInit');
+            peetSignerCleanUp := _GetProcAddress(FlibeetHandle, 'eetSignerCleanUp');
+            peetSignerShutdown := _GetProcAddress(FlibeetHandle, 'eetSignerShutdown');
 
-            peetSignerLoadPFXKeyFile := GetProcAddress(FlibeetHandle, 'eetSignerLoadPFXKeyFile');
-            peetSignerLoadPFXKeyMemory := GetProcAddress(FlibeetHandle, 'eetSignerLoadPFXKeyMemory');
-            peetSignerAddTrustedCertFile := GetProcAddress(FlibeetHandle, 'eetSignerAddTrustedCertFile');
-            peetSignerAddTrustedCertMemory := GetProcAddress(FlibeetHandle, 'eetSignerAddTrustedCertMemory');
-            peetSignerSignString := GetProcAddress(FlibeetHandle, 'eetSignerSignString');
-            peetSignerMakePKP := GetProcAddress(FlibeetHandle, 'eetSignerMakePKP');
-            peetSignerMakeBKP := GetProcAddress(FlibeetHandle, 'eetSignerMakeBKP');
-            peetSignerSignRequest := GetProcAddress(FlibeetHandle, 'eetSignerSignRequest');
-            peetSignerVerifyResponse := GetProcAddress(FlibeetHandle, 'eetSignerVerifyResponse');
-            peetSignerGetRawCertDataAsBase64String := GetProcAddress(FlibeetHandle, 'eetSignerGetRawCertDataAsBase64String');
+            peetSignerLoadPFXKeyFile := _GetProcAddress(FlibeetHandle, 'eetSignerLoadPFXKeyFile');
+            peetSignerLoadPFXKeyMemory := _GetProcAddress(FlibeetHandle, 'eetSignerLoadPFXKeyMemory');
+            peetSignerAddTrustedCertFile := _GetProcAddress(FlibeetHandle, 'eetSignerAddTrustedCertFile');
+            peetSignerAddTrustedCertMemory := _GetProcAddress(FlibeetHandle, 'eetSignerAddTrustedCertMemory');
+            peetSignerSignString := _GetProcAddress(FlibeetHandle, 'eetSignerSignString');
+            peetSignerMakePKP := _GetProcAddress(FlibeetHandle, 'eetSignerMakePKP');
+            peetSignerMakeBKP := _GetProcAddress(FlibeetHandle, 'eetSignerMakeBKP');
+            peetSignerSignRequest := _GetProcAddress(FlibeetHandle, 'eetSignerSignRequest');
+            peetSignerVerifyResponse := _GetProcAddress(FlibeetHandle, 'eetSignerVerifyResponse');
+            peetSignerGetRawCertDataAsBase64String := _GetProcAddress(FlibeetHandle, 'eetSignerGetRawCertDataAsBase64String');
 
-            peetSignerlibeetVersion := GetProcAddress(FlibeetHandle, 'eetSignerlibeetVersion');
-            peetSignerlibXmlVersion := GetProcAddress(FlibeetHandle, 'eetSignerlibXmlVersion');
-            peetSignerxmlSecVersion := GetProcAddress(FlibeetHandle, 'eetSignerxmlSecVersion');
-            peetSignerCryptoVersion := GetProcAddress(FlibeetHandle, 'eetSignerCryptoVersion');
+            peetSignerlibeetVersion := _GetProcAddress(FlibeetHandle, 'eetSignerlibeetVersion');
+            peetSignerlibXmlVersion := _GetProcAddress(FlibeetHandle, 'eetSignerlibXmlVersion');
+            peetSignerxmlSecVersion := _GetProcAddress(FlibeetHandle, 'eetSignerxmlSecVersion');
+            peetSignerCryptoVersion := _GetProcAddress(FlibeetHandle, 'eetSignerCryptoVersion');
           end;
       end;
     Result := FlibeetHandle > 0;
