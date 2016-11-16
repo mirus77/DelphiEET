@@ -7,9 +7,9 @@ interface
 
 const
   LIBEET_SO = 'libeetsigner.dll';
-  LIBEET_SOd = 'libeetsignerd.dll';
+  LIBEET_SO_debug = 'libeetsignerd.dll';
   LIBEET_SO64 = 'libeetsigner64.dll';
-  LIBEET_SO64d = 'libeetsigner64d.dll';
+  LIBEET_SO64_debug = 'libeetsigner64d.dll';
 
 type
   time_t = Longint;
@@ -17,6 +17,20 @@ type
 
   xmlCharPtr = PAnsiChar;
   xmlCharPtrPtr = ^xmlCharPtr;
+
+{$IFDEF USE_LIBEET}
+  xmlSecKeysMngr = Pointer;
+  xmlSecKeysMngrPtr = ^xmlSecKeysMngr;
+
+  eetSignerKeysMngrCreateFunc = function() : xmlSecKeysMngrPtr; cdecl;
+  eetSignerKeysMngrCreateFuncPtr = ^eetSignerKeysMngrCreateFunc;
+
+  eetSignerKeysMngrDestroyMethod = procedure(mngr : xmlSecKeysMngrPtr); cdecl;
+  eetSignerKeysMngrDestroyMethodPtr = ^eetSignerKeysMngrDestroyMethod;
+
+  eetSignerSetDefaultKeysMngrMethod = procedure(mngr : xmlSecKeysMngrPtr); cdecl;
+  eetSignerSetDefaultKeysMngrMethodPtr = ^eetSignerSetDefaultKeysMngrMethod;
+{$ENDIF}
 
   xmlSecPtr = Pointer;
   xmlSecPtrPtr = ^xmlSecPtr;
@@ -39,34 +53,34 @@ type
   eetSignerShutdownMethod = procedure(); cdecl;
   eetSignerShutdownMethodPtr = ^eetSignerShutdownMethod;
 
-  eetSignerLoadPFXKeyFileFunc = function(filename : xmlCharPtr; pwd : xmlCharPtr) : LongInt; cdecl;
+  eetSignerLoadPFXKeyFileFunc = function(mngr : xmlSecKeysMngrPtr; filename : xmlCharPtr; pwd : xmlCharPtr) : LongInt; cdecl;
   eetSignerLoadPFXKeyFileFuncPtr = ^eetSignerLoadPFXKeyFileFunc;
 
-  eetSignerLoadPFXKeyMemoryFunc = function(data : xmlCharPtr; dataSize : LongInt; pwd : xmlCharPtr) : LongInt; cdecl;
+  eetSignerLoadPFXKeyMemoryFunc = function(mngr : xmlSecKeysMngrPtr; data : xmlCharPtr; dataSize : LongInt; pwd : xmlCharPtr) : LongInt; cdecl;
   eetSignerLoadPFXKeyMemoryFuncPtr = ^eetSignerLoadPFXKeyMemoryFunc;
 
-  eetSignerAddTrustedCertFileFunc = function(filename : xmlCharPtr) : LongInt; cdecl;
+  eetSignerAddTrustedCertFileFunc = function(mngr : xmlSecKeysMngrPtr; filename : xmlCharPtr) : LongInt; cdecl;
   eetSignerAddTrustedCertFileFuncPtr = ^eetSignerAddTrustedCertFileFunc;
 
-  eetSignerAddTrustedCertMemoryFunc = function(data : xmlCharPtr; dataSize : LongInt) : LongInt; cdecl;
+  eetSignerAddTrustedCertMemoryFunc = function(mngr : xmlSecKeysMngrPtr; data : xmlCharPtr; dataSize : LongInt) : LongInt; cdecl;
   eetSignerAddTrustedCertMemoryFuncPtr = ^eetSignerAddTrustedCertMemoryFunc;
 
-  eetSignerSignStringFunc = function(data : xmlCharPtr) : xmlCharPtr; cdecl;
+  eetSignerSignStringFunc = function(mngr : xmlSecKeysMngrPtr; data : xmlCharPtr) : xmlCharPtr; cdecl;
   eetSignerSignStringFuncPtr = ^eetSignerSignStringFunc;
 
-  eetSignerMakePKPFunc = function(data : xmlCharPtr) : xmlCharPtr; cdecl;
+  eetSignerMakePKPFunc = function(mngr : xmlSecKeysMngrPtr; data : xmlCharPtr) : xmlCharPtr; cdecl;
   eetSignerMakePKPFuncPtr = ^eetSignerMakePKPFunc;
 
-  eetSignerMakeBKPFunc = function(data : xmlCharPtr) : xmlCharPtr; cdecl;
+  eetSignerMakeBKPFunc = function(mngr : xmlSecKeysMngrPtr; data : xmlCharPtr) : xmlCharPtr; cdecl;
   eetSignerMakeBKPFuncPtr = ^eetSignerMakeBKPFunc;
 
-  eetSignerSignRequestFunc = function(Data : Pointer; dataSize : LongInt; outbufp : xmlCharPtrPtr) : Longint cdecl;
+  eetSignerSignRequestFunc = function(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt; outbufp : xmlCharPtrPtr) : Longint cdecl;
   eetSignerSignRequestFuncPtr = ^eetSignerSignRequestFunc;
 
-  eetSignerVerifyResponseFunc = function(Data : Pointer; dataSize : LongInt) : LongInt; cdecl;
+  eetSignerVerifyResponseFunc = function(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt) : LongInt; cdecl;
   eetSignerVerifyResponseFuncPtr = ^eetSignerVerifyResponseFunc;
 
-  eetSignerGetRawCertDataAsBase64StringFunc = function() : xmlCharPtr; cdecl;
+  eetSignerGetRawCertDataAsBase64StringFunc = function(mngr : xmlSecKeysMngrPtr) : xmlCharPtr; cdecl;
   eetSignerGetRawCertDataAsBase64StringFuncPtr = ^eetSignerGetRawCertDataAsBase64StringFunc;
 
   eetSignerlibeetVersionFunc = function() : xmlCharPtr; cdecl;
@@ -85,22 +99,28 @@ type
 
   function FreeLibEETSigner: Boolean;
 
+{$IFDEF USE_LIBEET}
+  function eetSignerKeysMngrCreate : xmlSecKeysMngrPtr; cdecl;
+  procedure eetSignerKeysMngrDestroy(mngr : xmlSecKeysMngrPtr); cdecl;
+  procedure eetSignerSetDefaultKeysMngr(mngr : xmlSecKeysMngrPtr); cdecl;
+{$ENDIF}
+
   procedure eetFree(mem: Pointer); cdecl;
   function eetMalloc(size: size_t): Pointer; cdecl;
   function eetCalloc(size: size_t): Pointer; cdecl;
   function eetSignerInit: LongInt; cdecl;
   procedure eetSignerShutdown; cdecl;
   procedure eetSignerCleanUp; cdecl;
-  function eetSignerLoadPFXKeyFile(filename : string; pwd : string): Longint; cdecl;
-  function eetSignerLoadPFXKeyMemory(Data : Pointer; dataSize : LongInt; pwd : string): Longint; cdecl;
-  function eetSignerAddTrustedCertFile(filename : string): Longint; cdecl;
-  function eetSignerAddTrustedCertMemory(Data : Pointer; dataSize : LongInt): Longint; cdecl;
-  function eetSignerSignString(data : string): ansistring; cdecl;
-  function eetSignerMakePKP(data : string): string; cdecl;
-  function eetSignerMakeBKP(data : string): string; cdecl;
-  function eetSignerSignRequest(Data : Pointer; dataSize : LongInt; var output : ansistring): Longint; cdecl;
-  function eetSignerVerifyResponse(Data : Pointer; dataSize : LongInt): Longint; cdecl;
-  function eetSignerGetRawCertDataAsBase64String(): string; cdecl;
+  function eetSignerLoadPFXKeyFile(mngr : xmlSecKeysMngrPtr; filename : string; pwd : string): Longint; cdecl;
+  function eetSignerLoadPFXKeyMemory(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt; pwd : string): Longint; cdecl;
+  function eetSignerAddTrustedCertFile(mngr : xmlSecKeysMngrPtr; filename : string): Longint; cdecl;
+  function eetSignerAddTrustedCertMemory(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt): Longint; cdecl;
+  function eetSignerSignString(mngr : xmlSecKeysMngrPtr; data : string): ansistring; cdecl;
+  function eetSignerMakePKP(mngr : xmlSecKeysMngrPtr; data : string): string; cdecl;
+  function eetSignerMakeBKP(mngr : xmlSecKeysMngrPtr; data : string): string; cdecl;
+  function eetSignerSignRequest(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt; var output : ansistring): Longint; cdecl;
+  function eetSignerVerifyResponse(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt): Longint; cdecl;
+  function eetSignerGetRawCertDataAsBase64String(mngr : xmlSecKeysMngrPtr): string; cdecl;
   function eetSignerlibeetVersion(): string; cdecl;
   function eetSignerlibXmlVersion(): string; cdecl;
   function eetSignerxmlSecVersion(): string; cdecl;
@@ -130,6 +150,33 @@ function _GetProcAddress(hModule: HMODULE; lpProcName: LPCSTR) : FARPROC;
 begin
   Result := GetProcAddress(hModule, lpProcName);
 end;
+
+{$IFDEF USE_LIBEET}
+var
+  peetSignerKeysMngrCreate : eetSignerKeysMngrCreateFunc;
+function eetSignerKeysMngrCreate() : xmlSecKeysMngrPtr;
+begin
+  CheckForNil(@peetSignerKeysMngrCreate, 'eetSignerKeysMngrCreate');
+  Result := peetSignerKeysMngrCreate();
+end;
+
+var
+  peetSignerKeysMngrDestroy :  eetSignerKeysMngrDestroyMethod;
+procedure eetSignerKeysMngrDestroy(mngr: xmlSecKeysMngrPtr);
+begin
+  CheckForNil(@peetSignerKeysMngrDestroy, 'eetSignerKeysMngrDestroy');
+  peetSignerKeysMngrDestroy(mngr);
+end;
+
+var
+  peetSignerSetDefaultKeysMngr : eetSignerSetDefaultKeysMngrMethod;
+procedure eetSignerSetDefaultKeysMngr(mngr: xmlSecKeysMngrPtr);
+begin
+  CheckForNil(@peetSignerSetDefaultKeysMngr, 'eetSignerSetDefaultKeysMngr');
+  peetSignerSetDefaultKeysMngr(mngr);
+end;
+
+{$ENDIF}
 
 var
    peetFree: eetFreeMethod;
@@ -181,44 +228,44 @@ end;
 
 var
   peetSignerLoadPFXKeyFile : eetSignerLoadPFXKeyFileFunc;
-function eetSignerLoadPFXKeyFile(filename : string; pwd : string): Longint;
+function eetSignerLoadPFXKeyFile(mngr : xmlSecKeysMngrPtr; filename : string; pwd : string): Longint;
 begin
   CheckForNil(@peetSignerLoadPFXKeyFile, 'eetSignerLoadPFXKeyFile');
-  result := peetSignerLoadPFXKeyFile(xmlCharPtr(AnsiString(filename)),xmlCharPtr(AnsiString(pwd)));
+  result := peetSignerLoadPFXKeyFile(mngr, xmlCharPtr(AnsiString(filename)),xmlCharPtr(AnsiString(pwd)));
 end;
 
 var
   peetSignerLoadPFXKeyMemory : eetSignerLoadPFXKeyMemoryFunc;
-function eetSignerLoadPFXKeyMemory(Data : Pointer; dataSize : LongInt; pwd : string): Longint;
+function eetSignerLoadPFXKeyMemory(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt; pwd : string): Longint;
 begin
   CheckForNil(@peetSignerLoadPFXKeyMemory, 'eetSignerLoadPFXKeyMemory');
-  result := peetSignerLoadPFXKeyMemory(data, dataSize, xmlCharPtr(ansistring(pwd)));
+  result := peetSignerLoadPFXKeyMemory(mngr, data, dataSize, xmlCharPtr(ansistring(pwd)));
 end;
 
 var
   peetSignerAddTrustedCertFile : eetSignerAddTrustedCertFileFunc;
-function eetSignerAddTrustedCertFile(filename : string): Longint;
+function eetSignerAddTrustedCertFile(mngr : xmlSecKeysMngrPtr; filename : string): Longint;
 begin
   CheckForNil(@peetSignerAddTrustedCertFile, 'eetSignerAddTrustedCertFile');
-  result := peetSignerAddTrustedCertFile(xmlCharPtr(AnsiString(filename)));
+  result := peetSignerAddTrustedCertFile(mngr, xmlCharPtr(AnsiString(filename)));
 end;
 
 var
   peetSignerAddTrustedCertMemory : eetSignerAddTrustedCertMemoryFunc;
-function eetSignerAddTrustedCertMemory(Data : Pointer; dataSize : LongInt): Longint;
+function eetSignerAddTrustedCertMemory(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt): Longint;
 begin
   CheckForNil(@peetSignerAddTrustedCertMemory, 'eetSignerAddTrustedCertMemory');
-  result := peetSignerAddTrustedCertMemory(data, dataSize);
+  result := peetSignerAddTrustedCertMemory(mngr, data, dataSize);
 end;
 
 var
   peetSignerSignString : eetSignerSignStringFunc;
-function eetSignerSignString(data : string): ansistring;
+function eetSignerSignString(mngr : xmlSecKeysMngrPtr; data : string): ansistring;
 var
   buf : xmlCharPtr;
 begin
   CheckForNil(@peetSignerSignString, 'eetSignerSignString');
-  buf := peetSignerSignString(xmlCharPtr(AnsiString(data)));
+  buf := peetSignerSignString(mngr, xmlCharPtr(AnsiString(data)));
   if buf <> nil then
     begin
       Result := buf^;
@@ -228,12 +275,12 @@ end;
 
 var
   peetSignerMakePKP : eetSignerMakePKPFunc;
-function eetSignerMakePKP(data : string): string;
+function eetSignerMakePKP(mngr : xmlSecKeysMngrPtr; data : string): string;
 var
   buf : xmlCharPtr;
 begin
   CheckForNil(@peetSignerMakePKP, 'eetSignerMakePKP');
-  buf := peetSignerMakePKP(xmlCharPtr(AnsiString(data)));
+  buf := peetSignerMakePKP(mngr, xmlCharPtr(AnsiString(data)));
   if buf <> nil then
     begin
       Result := string(buf);
@@ -243,12 +290,12 @@ end;
 
 var
   peetSignerMakeBKP : eetSignerMakeBKPFunc;
-function eetSignerMakeBKP(data : string): string;
+function eetSignerMakeBKP(mngr : xmlSecKeysMngrPtr; data : string): string;
 var
   buf : xmlCharPtr;
 begin
   CheckForNil(@peetSignerMakeBKP, 'eetSignerMakeBKP');
-  buf := peetSignerMakeBKP(xmlCharPtr(ansistring(data)));
+  buf := peetSignerMakeBKP(mngr, xmlCharPtr(ansistring(data)));
   if buf <> nil then
     begin
       Result := string(buf);
@@ -258,7 +305,7 @@ end;
 
 var
   peetSignerSignRequest : eetSignerSignRequestFunc;
-function eetSignerSignRequest(Data : Pointer; dataSize : LongInt; var output : ansistring): Longint;
+function eetSignerSignRequest(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt; var output : ansistring): Longint;
 var
   outbufp : xmlCharPtrPtr;
   S : AnsiString;
@@ -268,7 +315,7 @@ begin
   try
     S := '';
     outbufp^ := @S;
-    result := peetSignerSignRequest(xmlCharPtr(Data), dataSize, outbufp);
+    result := peetSignerSignRequest(mngr, xmlCharPtr(Data), dataSize, outbufp);
     output := outbufp^;
   finally
     eetFree(outbufp);
@@ -277,20 +324,20 @@ end;
 
 var
   peetSignerVerifyResponse : eetSignerVerifyResponseFunc;
-function eetSignerVerifyResponse(Data : Pointer; dataSize : LongInt): Longint;
+function eetSignerVerifyResponse(mngr : xmlSecKeysMngrPtr; Data : Pointer; dataSize : LongInt): Longint;
 begin
   CheckForNil(@peetSignerVerifyResponse, 'eetSignerVerifyResponse');
-  result := peetSignerVerifyResponse(xmlCharPtr(data), dataSize);
+  result := peetSignerVerifyResponse(mngr, xmlCharPtr(data), dataSize);
 end;
 
 var
   peetSignerGetRawCertDataAsBase64String : eetSignerGetRawCertDataAsBase64StringFunc;
-function eetSignerGetRawCertDataAsBase64String(): string;
+function eetSignerGetRawCertDataAsBase64String(mngr : xmlSecKeysMngrPtr): string;
 var
   buf : xmlCharPtr;
 begin
   CheckForNil(@peetSignerGetRawCertDataAsBase64String, 'eetSignerGetRawCertDataAsBase64String');
-  buf := peetSignerGetRawCertDataAsBase64String();
+  buf := peetSignerGetRawCertDataAsBase64String(mngr);
   if buf <> nil then
     begin
       Result := string(buf);
@@ -346,19 +393,25 @@ begin
             curLibName := LIBEET_SO;
             {$IFDEF DEBUG}
             if IsConsole then
-              curLibName := LIBEET_SOd;
+              curLibName := LIBEET_SO_debug;
             {$ENDIF}
             {$IFDEF WIN64}
             curLibName := LIBEET_SO64;
             {$IFDEF DEBUG}
             if IsConsole then
-              curLibName := LIBEET_SO64d;
+              curLibName := LIBEET_SO64_debug;
             {$ENDIF}
             {$ENDIF}
           end;
         FlibeetHandle := LoadLibrary(curLibName);
         if FlibeetHandle <> 0 then
           begin
+            {$IFDEF USE_LIBEET}
+            peetSignerKeysMngrCreate := _GetProcAddress(FlibeetHandle, 'eetSignerKeysMngrCreate');
+            peetSignerKeysMngrDestroy := _GetProcAddress(FlibeetHandle, 'eetSignerKeysMngrDestroy');
+            peetSignerSetDefaultKeysMngr := _GetProcAddress(FlibeetHandle, 'eetSignerSetDefaultKeysMngr');
+            {$ENDIF}
+
             peetFree := _GetProcAddress(FlibeetHandle, 'eetFree');
             peetMalloc := _GetProcAddress(FlibeetHandle, 'eetMalloc');
             peetCalloc := _GetProcAddress(FlibeetHandle, 'eetCalloc');
@@ -400,6 +453,12 @@ begin
     if (FlibeetHandle <> 0) and (ReferenceCount = 0) then
     begin
       FlibeetHandle := 0;
+
+      {$IFDEF USE_LIBEET}
+      peetSignerKeysMngrCreate := nil;
+      peetSignerKeysMngrDestroy := nil;
+      peetSignerSetDefaultKeysMngr := nil;
+      {$ENDIF}
 
       peetFree := nil;
       peetMalloc := nil;

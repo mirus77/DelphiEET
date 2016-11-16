@@ -27,9 +27,7 @@ Type
     FActive: Boolean;
     FPFXStream: TMemoryStream; // stream s (PFX)
     FCERTrustedList : TCERTrustedList;   // stream list s overovacimi certifikaty (CER)
-{$IFNDEF USE_LIBEET}
     FMngr: xmlSecKeysMngrPtr;
-{$ENDIF}
     FVerifyCertIncluded: Boolean;
     FPrivKeyInfo: TEETSignerKeyInfo;
     procedure InitXMLSec;
@@ -373,7 +371,7 @@ begin
       Result := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
     end;
 {$ELSE}
-  Result := eetSignerMakeBKP(Data);
+  Result := eetSignerMakeBKP(FMngr, Data);
 {$ENDIF}
 end;
 
@@ -392,7 +390,7 @@ begin
       Result := string(EncodeBase64(buf));
     end;
 {$ELSE}
-  Result := eetSignerMakePKP(Data);
+  Result := eetSignerMakePKP(FMngr, Data);
 {$ENDIF}
 end;
 
@@ -505,6 +503,11 @@ begin
     end;
     FreeXMLSecOpenSSL;
 {$ELSE}
+    if FMngr <> nil
+    then begin
+      eetSignerKeysMngrDestroy(FMngr);
+      FMngr := nil;
+    end;
     eetSignerCleanUp;
 {$ENDIF}
     FPFXStream.Clear;
@@ -551,7 +554,11 @@ begin
         then raise EEETSignerException.Create(sSignerInvalidPFXCert)
         else Key := nil;
         {$ELSE}
-        if (eetSignerLoadPFXKeyMemory(FPFXStream.Memory,FPFXStream.Size,string(FCertPassword)) < 0)
+        FMngr := eetSignerKeysMngrCreate();
+        if (FMngr = nil)
+        then raise EEETSignerException.Create(sSignerKeyMngrCreateFail);
+
+        if (eetSignerLoadPFXKeyMemory(FMngr, FPFXStream.Memory,FPFXStream.Size,string(FCertPassword)) < 0)
         then
           raise EEETSignerException.Create(sSignerInvalidPFXCert);
         {$ENDIF}
@@ -587,7 +594,7 @@ begin
               raise EEETSignerException.Create(sSignerInvalidVerifyCert)
             end
             {$ELSE}
-            if (eetSignerAddTrustedCertMemory(ms.Memory, ms.Size) < 0)
+            if (eetSignerAddTrustedCertMemory(FMngr, ms.Memory, ms.Size) < 0)
             then  begin
               FVerifyCertIncluded := False;
               raise EEETSignerException.Create(sSignerInvalidVerifyCert)
@@ -620,6 +627,11 @@ begin
         FMngr := nil;
       end;
       {$ELSE}
+      if FMngr <> nil
+      then begin
+        eetSignerKeysMngrDestroy(FMngr);
+        FMngr := nil;
+      end;
       eetSignerCleanUp;
       {$ENDIF}
       raise;
@@ -710,7 +722,7 @@ begin
     then xmlSecKeyDestroy(secKey);
   end;
 {$ELSE}
-  Result := eetSignerSignString(s);
+  Result := eetSignerSignString(FMngr, s);
 {$ENDIF}
 end;
 
@@ -804,7 +816,7 @@ begin
     xmlSecDSigCtxDestroy(DSigCtx);
   end;
 {$ELSE}
-  Result := (eetSignerSignRequest(XMLStream.Memory, XMLStream.Size, output) = 0);
+  Result := (eetSignerSignRequest(FMngr, XMLStream.Memory, XMLStream.Size, output) = 0);
   if Result then
     begin
       XMLStream.SetSize(Length(output));
@@ -911,7 +923,7 @@ begin
     then xmlSecDSigCtxDestroy(DsigCtx);
   end;
 {$ELSE}
-  Result := (eetSignerVerifyResponse(XMLStream.Memory, XMLStream.Size) = 1);
+  Result := (eetSignerVerifyResponse(FMngr, XMLStream.Memory, XMLStream.Size) = 1);
 {$ENDIF}
 end;
 
