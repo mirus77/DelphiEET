@@ -14,6 +14,7 @@ Type
   TEETSignerKeyInfo = record
     Name : string;
     Subject : string;
+    IssuerName : string;
     SerialNumber : string;
     notValidBefore : TDateTime;
     notValidAfter : TDateTime;
@@ -415,8 +416,8 @@ begin
 end;
 
 procedure TEETSigner.ReadPrivKeyInfo;
-{$IFNDEF USE_LIBEET}
 var
+{$IFNDEF USE_LIBEET}
   keyInfoCtx: xmlSecKeyInfoCtxPtr;
   secKey: xmlSecKeyPtr;
   ItemCount, I : Integer;
@@ -426,6 +427,8 @@ var
   a_serialnumber : string;
   a_subject : string;
 {$ELSE}
+  x509cert : libeetX509Ptr;
+  a_time, b_time : TDateTime;
 {$ENDIF}
 begin
   CheckActive;
@@ -468,6 +471,20 @@ begin
     then xmlSecKeyDestroy(secKey);
   end;
 {$ELSE}
+    x509cert := eetSignerGetX509KeyCert(FMngr);
+    if x509cert <> nil then
+      begin
+        FPrivKeyInfo.Name := 'p';
+        FPrivKeyInfo.Subject := eetSignerX509GetSubject(x509cert);
+        FPrivKeyInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
+        FPrivKeyInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
+        if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then
+          begin
+            FPrivKeyInfo.notValidBefore := a_time;
+            FPrivKeyInfo.notValidAfter := b_time;
+          end;
+        eetFree(x509cert);
+      end;
 {$ENDIF}
 end;
 
