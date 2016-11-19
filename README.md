@@ -1,6 +1,27 @@
 # DelphiEET
 Delphi component for registered sale data messages. http://www.etrzby.cz 
 
+
+## Use  with USE_LIBEET
+Demo need library.
+
+```
+libeetsigner.dll # source at : https://github.com/mirus77/libeet
+ - needed installed Visual C++ Redistributable Packages for Visual Studio 2013
+```
+Delphi project Options for demo TestEET.dpr with USE_LIBEET
+
+```
+  Delphi Compiler Options -> Conditional Defines : 
+      USE_INDY - for using in Windows XP required
+      USE_LIBEET - for using with libeetsigner
+  Delphi Compiler Options -> Output Directory: ..\bin
+  Delphi Compiler Options -> Search Path: $(BDS)\source\soap;..\include\databinding;..\include\eet;..\include\vcruntime
+  Delphi Compiler Options -> Unit Output Directory: .\dcu
+```
+
+
+## Use without USE_LIBEET
 Demo need libxml2 and libxmlsec library from : ftp://ftp.zlatkovic.com/libxml/64bit/
 ```
 libcharset-1.dll
