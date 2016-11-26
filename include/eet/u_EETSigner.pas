@@ -36,6 +36,7 @@ Type
     procedure SetActive(const Value: Boolean);
     procedure CheckActive;
     procedure CheckInactive;
+    procedure ClearPrivKeyInfo;
     procedure ReadPrivKeyInfo;
     function ExtractSubjectItem(aSubject, ItemName : string): string;
   public
@@ -119,6 +120,14 @@ begin
   then raise EEETSignerException.Create(sSignerInactive);
 end;
 
+procedure TEETSigner.ClearPrivKeyInfo;
+begin
+  FPrivKeyInfo.Name := '';
+  FPrivKeyInfo.Subject := '';
+  FPrivKeyInfo.notValidBefore := 0;
+  FPrivKeyInfo.notValidAfter := 0;
+end;
+
 procedure TEETSigner.ClearVerifyCert;
 begin
   FCERTrustedList.Clear;
@@ -131,15 +140,10 @@ begin
   inherited Create(AOwner);
   FPFXStream := TMemoryStream.Create;
   FCERTrustedList := TCERTrustedList.Create;
-  {$IFNDEF USE_LIBEET}
   FMngr := nil;
-  {$ENDIF}
   FActive := False;
   FVerifyCertIncluded := False;
-  FPrivKeyInfo.Name := '';
-  FPrivKeyInfo.Subject := '';
-  FPrivKeyInfo.notValidBefore := 0;
-  FPrivKeyInfo.notValidAfter := 0;
+  ClearPrivKeyInfo;
 end;
 
 destructor TEETSigner.Destroy;
@@ -452,14 +456,19 @@ begin
          if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
            begin
              x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
-             if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
-               FPrivKeyInfo.notValidBefore :=a_time;
-             if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
-               FPrivKeyInfo.notValidAfter := a_time;
-             if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
-               FPrivKeyInfo.SerialNumber :=a_serialnumber;
              if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), a_subject) = 0 then
                FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
+             if Length(FPrivKeyInfo.Subject) > 2 then
+               if Copy(FPrivKeyInfo.Subject,1,2) = 'CZ'  then
+                 begin
+                   if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
+                     FPrivKeyInfo.notValidBefore :=a_time;
+                   if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
+                     FPrivKeyInfo.notValidAfter := a_time;
+                   if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
+                     FPrivKeyInfo.SerialNumber :=a_serialnumber;
+                   Break;
+                 end;
            end;
       end;
 
@@ -471,20 +480,20 @@ begin
     then xmlSecKeyDestroy(secKey);
   end;
 {$ELSE}
-    x509cert := eetSignerGetX509KeyCert(FMngr);
-    if x509cert <> nil then
-      begin
-        FPrivKeyInfo.Name := 'p';
-        FPrivKeyInfo.Subject := eetSignerX509GetSubject(x509cert);
-        FPrivKeyInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
-        FPrivKeyInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
-        if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then
-          begin
-            FPrivKeyInfo.notValidBefore := a_time;
-            FPrivKeyInfo.notValidAfter := b_time;
-          end;
-        eetFree(x509cert);
-      end;
+  x509cert := eetSignerGetX509KeyCert(FMngr);
+  if x509cert <> nil then
+    begin
+      FPrivKeyInfo.Name := 'p';
+      FPrivKeyInfo.Subject := eetSignerX509GetSubject(x509cert);
+      FPrivKeyInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
+      FPrivKeyInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
+      if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then
+        begin
+          FPrivKeyInfo.notValidBefore := a_time;
+          FPrivKeyInfo.notValidAfter := b_time;
+        end;
+      eetFree(x509cert);
+    end;
 {$ENDIF}
 end;
 
@@ -530,6 +539,7 @@ begin
     FPFXStream.Clear;
     FCERTrustedList.Clear;
     FActive := False;
+    ClearPrivKeyInfo;
     Exit;
   end;
 
@@ -546,10 +556,7 @@ begin
       {$BOOLEVAL OFF}
       if FPFXStream.Size > 0
       then begin
-        FPrivKeyInfo.Name := '';
-        FPrivKeyInfo.SerialNumber := '';
-        FPrivKeyInfo.notValidBefore := 0;
-        FPrivKeyInfo.notValidAfter := 0;
+        ClearPrivKeyInfo;
 
         {$IFNDEF USE_LIBEET}
         FMngr := xmlSecKeysMngrCreate();
