@@ -13,22 +13,11 @@ object TestEETForm: TTestEETForm
   OldCreateOrder = False
   OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    898
+    551)
   PixelsPerInch = 96
   TextHeight = 13
-  object lblKeyValidFrom: TLabel
-    Left = 560
-    Top = 13
-    Width = 74
-    Height = 13
-    Caption = 'lblKeyValidFrom'
-  end
-  object lblKeyValidTo: TLabel
-    Left = 560
-    Top = 44
-    Width = 62
-    Height = 13
-    Caption = 'lblKeyValidTo'
-  end
   object btnOdeslat: TButton
     Left = 8
     Top = 8
@@ -130,7 +119,7 @@ object TestEETForm: TTestEETForm
     end
   end
   object btnVerifyResponse: TButton
-    Left = 297
+    Left = 233
     Top = 8
     Width = 208
     Height = 25
@@ -139,7 +128,7 @@ object TestEETForm: TTestEETForm
     OnClick = btnVerifyResponseClick
   end
   object btnFormatOdpoved: TButton
-    Left = 297
+    Left = 233
     Top = 39
     Width = 208
     Height = 25
@@ -155,6 +144,64 @@ object TestEETForm: TTestEETForm
     Caption = 'Form'#225'tovat XML po'#382'adavek'
     TabOrder = 4
     OnClick = btnFormatRequestClick
+  end
+  object pnlCertInfo: TPanel
+    Left = 447
+    Top = 39
+    Width = 443
+    Height = 25
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    Caption = 'pnlCertInfo'
+    Padding.Left = 5
+    ShowCaption = False
+    TabOrder = 5
+    object lblKeyValidFrom: TLabel
+      Left = 6
+      Top = 1
+      Width = 74
+      Height = 23
+      Align = alLeft
+      Caption = 'lblKeyValidFrom'
+      Layout = tlCenter
+    end
+    object lblKeyValidTo: TLabel
+      Left = 94
+      Top = 1
+      Width = 62
+      Height = 23
+      Align = alLeft
+      Caption = 'lblKeyValidTo'
+      Layout = tlCenter
+    end
+    object lblSpace1: TLabel
+      Left = 80
+      Top = 1
+      Width = 14
+      Height = 23
+      Align = alLeft
+      AutoSize = False
+      Caption = ' '
+    end
+  end
+  object pnl1: TPanel
+    Left = 447
+    Top = 9
+    Width = 443
+    Height = 25
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    Caption = 'pnlCertInfo'
+    Padding.Left = 5
+    ShowCaption = False
+    TabOrder = 6
+    object lblKeySubject: TLabel
+      Left = 6
+      Top = 1
+      Width = 64
+      Height = 23
+      Align = alLeft
+      Caption = 'lblKeySubject'
+      Layout = tlCenter
+    end
   end
   object synxmlsyn2: TSynXMLSyn
     Options.AutoDetectEnabled = False

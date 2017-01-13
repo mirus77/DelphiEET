@@ -41,9 +41,7 @@ Type
     procedure CheckInactive;
     procedure ClearPrivKeyInfo;
     procedure ReadPrivKeyInfo;
-    {$IFNDEF USE_LIBEET}
     function ExtractSubjectItem(aSubject, ItemName : string): string;
-    {$ENDIF}
   public
     {:Nacita klice}
     property Active: Boolean read FActive write SetActive;
@@ -161,7 +159,6 @@ begin
   inherited;
 end;
 
-{$IFNDEF USE_LIBEET}
 function TEETSigner.ExtractSubjectItem(aSubject, ItemName: string): string;
 var
   TempList : TStringList;
@@ -177,7 +174,6 @@ begin
     TempList.Free;
   end;
 end;
-{$ENDIF}
 
 function TEETSigner.GetRawCertDataAsBase64String: String;
 {$IFNDEF USE_LIBEET}
@@ -490,7 +486,7 @@ begin
   if x509cert <> nil then
     begin
       FPrivKeyInfo.Name := 'p';
-      FPrivKeyInfo.Subject := eetSignerX509GetSubject(x509cert);
+      FPrivKeyInfo.Subject := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'CN');
       FPrivKeyInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
       FPrivKeyInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
       if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then

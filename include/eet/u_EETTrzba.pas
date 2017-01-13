@@ -3,12 +3,12 @@ unit u_EETTrzba;
 interface
 
 uses
-  Windows,System.SysUtils, System.Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
+  Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
   SOAPHTTPTrans, WebNode, Soap.OpConvertOptions, OPToSOAPDomConv, Soap.SOAPEnv,
-  {$IFDEF USE_INDY}
+  {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
   {$ELSE}
-    IdHTTP, IdSSLOpenSSL, WinInet,
+     WinInet,
   {$ENDIF}
   ActiveX, u_EETServiceSOAP, XMLDoc, XMLIntf, u_EETSigner;
 
@@ -39,7 +39,9 @@ type
   TEETTrzba = class(TComponent)
   private
     FEETService : EET;
+{$IF Defined(USE_DIRECTINDY)}
     FIdHttpClient : TIdHTTP;
+{$ENDIF}
     FOnBeforeSendRequest: TBeforeExecuteEvent;
     FOnAfterSendRequest: TAfterExecuteEvent;
     FConnectTimeout: Integer;
@@ -48,7 +50,9 @@ type
     FSendTimeout: Integer;
     FErrorCode: Integer;
     FErrorMessage: string;
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     FOnVerifyPeer: TVerifyPeerEvent;
+{$ENDIF}
     FRootCertFile: string;
     FHttpsTrustName: string;
   protected
@@ -68,13 +72,17 @@ type
     function NewTrzba : Trzba;
     function SignTrzba(const parameters: Trzba): Boolean;
     function OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
+    {$IF Defined(USE_DIRECTINDY)}
     function OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
+    {$ENDIF}
     function HasVarovani(Odpoved : OdpovedType) : Boolean;
     procedure SaveToXML(const parameters: Trzba; const DestStream : TStream);
     procedure LoadFromXML(const parameters: Trzba; const SourceStream : TStream);
     function AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
     function AddTrustedCertFromStream(const CerStream: TStream) : integer;
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     function DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
+{$ENDIF}
   published
     property PFXStream : TMemoryStream read FPFXStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
@@ -89,7 +97,9 @@ type
     property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
     property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
     property Signer : TEETSigner read FSigner;
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
+{$ENDIF}
   end;
 
 implementation
@@ -135,8 +145,10 @@ begin
   IsInitialized:=false;
   CoInitialize(nil);
   FEETService := nil;
+{$IF Defined(USE_DIRECTINDY)}
   FIdHttpClient := TIdHTTP.Create(nil);
   FIdHttpClient.IOHandler := TIdSSLIOHandlerSocketOpenSSL.Create(FIdHttpClient);
+{$ENDIF}
   FSigner := TEETSigner.Create(nil);
   FPFXPassword := '';
   FPFXStream := TMemoryStream.Create;
@@ -149,7 +161,9 @@ end;
 
 destructor TEETTrzba.Destroy;
 begin
+{$IF Defined(USE_DIRECTINDY)}
   FIdHttpClient.Free;
+{$ENDIF}
   FSigner.Free;
   FCERTrustedList.Free;
   FPFXStream.Free;
@@ -157,6 +171,7 @@ begin
   inherited;
 end;
 
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
 function TEETTrzba.DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
 var
   TempList: TStringList;
@@ -182,6 +197,7 @@ begin
     end;
   if Result and Assigned(FOnVerifyPeer) then Result := FOnVerifyPeer(Certificate, Result, ADepth, AError);
 end;
+{$ENDIF}
 
 function TEETTrzba.GetEETRIO: TEETRIO;
 begin
@@ -313,7 +329,7 @@ begin
    end;
 {$ENDIF}
 end;
-
+{$IF Defined(USE_DIRECTINDY)}
 function TEETTrzba.OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly: Boolean): Odpoved;
 var
   SoapRequest, SOAPResponse : TMemoryStream;
@@ -442,6 +458,7 @@ begin
    end;
 {$ENDIF}
 end;
+{$ENDIF}
 
 procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
 var

@@ -3,9 +3,9 @@ unit u_main;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, Soap.XSBuiltIns,
-  Vcl.ExtCtrls, {$IFDEF USE_INDY} IdSSLOpenSSL, {$ENDIF} Vcl.ComCtrls;
+  Windows, Messages, SysUtils, Variants, Classes, Graphics,
+  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, Soap.XSBuiltIns,
+  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$ENDIF} ComCtrls;
 
 type
   TTestEETForm = class(TForm)
@@ -24,6 +24,10 @@ type
     btnFormatRequest: TButton;
     lblKeyValidFrom: TLabel;
     lblKeyValidTo: TLabel;
+    pnlCertInfo: TPanel;
+    lblSpace1: TLabel;
+    pnl1: TPanel;
+    lblKeySubject: TLabel;
     procedure btnOdeslatClick(Sender: TObject);
     procedure btnVerifyResponseClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -33,7 +37,7 @@ type
   private
     procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
-    {$IFDEF USE_INDY}
+    {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
     {$ENDIF}
   public
@@ -154,10 +158,10 @@ begin
 //    EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
-{$IFDEF USE_INDY}
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     EET.OnVerifyPeer := VerifyPeer;
-{$ENDIF}
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
+{$ENDIF}
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
@@ -167,6 +171,7 @@ begin
     EET.ConnectTimeout := 2000;
     EET.Initialize;
 
+    lblKeySubject.Caption := 'Pøedmìt :' + EET.Signer.PrivKeyInfo.Subject;
     lblKeyValidFrom.Caption := 'Platnost klíèe od :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
     lblKeyValidTo.Caption := 'Platnost klíèe do :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
 
@@ -202,8 +207,17 @@ begin
 //    eTrzba := EET.NewTrzba;
 //    EET.LoadFromXML(eTrzba, ms);
 
-//    Odp := EET.OdeslaniTrzby(eTrzba);
+{$IF Defined(USE_DIRECTINDY)}
+{$MESSAGE HINT 'USE_DIRECTINDY'}
     Odp := EET.OdeslaniTrzbyDirectIndy(eTrzba);
+{$ELSE}
+  {$IF Defined(USE_INDY)}
+     {$MESSAGE HINT 'USE_INDY'}
+  {$ELSE}
+     {$MESSAGE HINT 'USE WinInet default SOAP WebRequest'}
+  {$ENDIF}
+    Odp := EET.OdeslaniTrzby(eTrzba);
+{$ENDIF}
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
         if Odp.Potvrzeni <> nil then
@@ -260,10 +274,16 @@ end;
 
 procedure TTestEETForm.FormCreate(Sender: TObject);
 begin
+  lblKeySubject.Caption := 'Pøedmìt :';
   lblKeyValidFrom.Caption := 'Platnost klíèe od :';
   lblKeyValidTo.Caption := 'Platnost klíèe do :';
 
   pgcDebug.ActivePage := tsRequest;
+  {$IFDEF USE_LIBEET};
+  Caption := Caption + ' - USE libeetsigner.dll';
+  {$ELSE}
+  Caption := Caption + ' - USE xmlsec library';
+  {$ENDIF}
 end;
 
 procedure TTestEETForm.FormShow(Sender: TObject);
@@ -274,7 +294,7 @@ begin
     synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
 end;
 
-{$IFDEF USE_INDY}
+{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
 function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
 begin
   Result := AOk;
