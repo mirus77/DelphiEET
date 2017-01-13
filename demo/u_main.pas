@@ -202,7 +202,8 @@ begin
 //    eTrzba := EET.NewTrzba;
 //    EET.LoadFromXML(eTrzba, ms);
 
-    Odp := EET.OdeslaniTrzby(eTrzba);
+//    Odp := EET.OdeslaniTrzby(eTrzba);
+    Odp := EET.OdeslaniTrzbyDirectIndy(eTrzba);
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
         if Odp.Potvrzeni <> nil then

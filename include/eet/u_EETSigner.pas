@@ -10,6 +10,9 @@ uses Classes,
 {$ENDIF}
      SysUtils;
 
+const
+  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
+
 Type
   TEETSignerKeyInfo = record
     Name : string;
@@ -38,7 +41,9 @@ Type
     procedure CheckInactive;
     procedure ClearPrivKeyInfo;
     procedure ReadPrivKeyInfo;
+    {$IFNDEF USE_LIBEET}
     function ExtractSubjectItem(aSubject, ItemName : string): string;
+    {$ENDIF}
   public
     {:Nacita klice}
     property Active: Boolean read FActive write SetActive;
@@ -100,7 +105,6 @@ uses
 {$IFNDEF USE_LIBEET}
 const
   PFXCERT_KEYNAME:PAnsiChar   = 'p';
-  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
 {$ENDIF}
 
 var
@@ -157,6 +161,7 @@ begin
   inherited;
 end;
 
+{$IFNDEF USE_LIBEET}
 function TEETSigner.ExtractSubjectItem(aSubject, ItemName: string): string;
 var
   TempList : TStringList;
@@ -172,6 +177,7 @@ begin
     TempList.Free;
   end;
 end;
+{$ENDIF}
 
 function TEETSigner.GetRawCertDataAsBase64String: String;
 {$IFNDEF USE_LIBEET}

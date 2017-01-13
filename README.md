@@ -45,7 +45,7 @@ zlib1.dll
 Delphi project Options for demo TestEET.dpr
 
 ```
-  Delphi Compiler Options -> Conditional Defines : USE_INDY - for using in Windows XP required
+  Delphi Compiler Options -> Conditional Defines : USE_INDY - for using in Windows XP required and existing  sources $(BDS)\source\soap. This is not usable for Delphi Starter Edition.
   Delphi Compiler Options -> Output Directory: ..\bin
   Delphi Compiler Options -> Search Path: $(BDS)\source\soap;..\include\databinding;..\include\eet;..\include\synapse;..\include\szutils;..\include\xmlsec;..\include\vcruntime
   Delphi Compiler Options -> Unit Output Directory: .\dcu
