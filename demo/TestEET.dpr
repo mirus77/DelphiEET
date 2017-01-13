@@ -22,7 +22,7 @@ program TestEET;
 
 
 uses
-  Vcl.Forms,
+  Forms,
   u_main in 'u_main.pas' {TestEETForm};
 
 {$R *.res}

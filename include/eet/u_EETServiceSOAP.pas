@@ -13,7 +13,7 @@ unit u_EETServiceSOAP;
 
 interface
 
-uses Soap.InvokeRegistry, Soap.SOAPHTTPClient, System.Types, Soap.XSBuiltIns;
+uses InvokeRegistry, SOAPHTTPClient, Types, XSBuiltIns;
 
 const
   IS_OPTN = $0001;
@@ -48,7 +48,7 @@ type
   TrzbaDataType        = class;                 { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
   TrzbaKontrolniKodyType = class;               { "http://fs.mfcr.cz/eet/schema/v3"[GblCplx] }
 
-  {$SCOPEDENUMS ON}
+//  {$SCOPEDENUMS ON}
   { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   BkpEncodingType = (base16);
 
@@ -67,7 +67,7 @@ type
   { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   RezimType = (_0, _1);
 
-  {$SCOPEDENUMS OFF}
+//  {$SCOPEDENUMS OFF}
 
   KodChybaType    =  type Integer;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
   BkpType         =  type string;      { "http://fs.mfcr.cz/eet/schema/v3"[GblSmpl] }
@@ -401,7 +401,7 @@ function GetEET(UseWSDL: Boolean=System.False; Addr: string=''; HTTPRIO: THTTPRI
 
 
 implementation
-  uses System.SysUtils;
+  uses SysUtils;
 
 function GetEET(UseWSDL: Boolean; Addr: string; HTTPRIO: THTTPRIO): EET;
 const
@@ -453,8 +453,8 @@ end;
 
 destructor OdpovedHlavickaType.Destroy;
 begin
-  System.SysUtils.FreeAndNil(Fdat_prij);
-  System.SysUtils.FreeAndNil(Fdat_odmit);
+  SysUtils.FreeAndNil(Fdat_prij);
+  SysUtils.FreeAndNil(Fdat_odmit);
   inherited Destroy;
 end;
 
@@ -504,7 +504,7 @@ end;
 
 destructor TrzbaHlavickaType.Destroy;
 begin
-  System.SysUtils.FreeAndNil(Fdat_odesl);
+  SysUtils.FreeAndNil(Fdat_odesl);
   inherited Destroy;
 end;
 
@@ -527,9 +527,9 @@ end;
 
 destructor TrzbaType.Destroy;
 begin
-  System.SysUtils.FreeAndNil(FHlavicka);
-  System.SysUtils.FreeAndNil(FData);
-  System.SysUtils.FreeAndNil(FKontrolniKody);
+  SysUtils.FreeAndNil(FHlavicka);
+  SysUtils.FreeAndNil(FData);
+  SysUtils.FreeAndNil(FKontrolniKody);
   inherited Destroy;
 end;
 
@@ -544,11 +544,11 @@ var
   I: Integer;
 begin
   for I := 0 to System.Length(FVarovani)-1 do
-    System.SysUtils.FreeAndNil(FVarovani[I]);
-  System.SetLength(FVarovani, 0);
-  System.SysUtils.FreeAndNil(FHlavicka);
-  System.SysUtils.FreeAndNil(FPotvrzeni);
-  System.SysUtils.FreeAndNil(FChyba);
+    SysUtils.FreeAndNil(FVarovani[I]);
+  SetLength(FVarovani, 0);
+  SysUtils.FreeAndNil(FHlavicka);
+  SysUtils.FreeAndNil(FPotvrzeni);
+  SysUtils.FreeAndNil(FChyba);
   inherited Destroy;
 end;
 
@@ -587,21 +587,21 @@ end;
 
 destructor TrzbaDataType.Destroy;
 begin
-  System.SysUtils.FreeAndNil(Fdat_trzby);
-  System.SysUtils.FreeAndNil(Fcelk_trzba);
-  System.SysUtils.FreeAndNil(Fzakl_nepodl_dph);
-  System.SysUtils.FreeAndNil(Fzakl_dan1);
-  System.SysUtils.FreeAndNil(Fdan1);
-  System.SysUtils.FreeAndNil(Fzakl_dan2);
-  System.SysUtils.FreeAndNil(Fdan2);
-  System.SysUtils.FreeAndNil(Fzakl_dan3);
-  System.SysUtils.FreeAndNil(Fdan3);
-  System.SysUtils.FreeAndNil(Fcest_sluz);
-  System.SysUtils.FreeAndNil(Fpouzit_zboz1);
-  System.SysUtils.FreeAndNil(Fpouzit_zboz2);
-  System.SysUtils.FreeAndNil(Fpouzit_zboz3);
-  System.SysUtils.FreeAndNil(Furceno_cerp_zuct);
-  System.SysUtils.FreeAndNil(Fcerp_zuct);
+  SysUtils.FreeAndNil(Fdat_trzby);
+  SysUtils.FreeAndNil(Fcelk_trzba);
+  SysUtils.FreeAndNil(Fzakl_nepodl_dph);
+  SysUtils.FreeAndNil(Fzakl_dan1);
+  SysUtils.FreeAndNil(Fdan1);
+  SysUtils.FreeAndNil(Fzakl_dan2);
+  SysUtils.FreeAndNil(Fdan2);
+  SysUtils.FreeAndNil(Fzakl_dan3);
+  SysUtils.FreeAndNil(Fdan3);
+  SysUtils.FreeAndNil(Fcest_sluz);
+  SysUtils.FreeAndNil(Fpouzit_zboz1);
+  SysUtils.FreeAndNil(Fpouzit_zboz2);
+  SysUtils.FreeAndNil(Fpouzit_zboz3);
+  SysUtils.FreeAndNil(Furceno_cerp_zuct);
+  SysUtils.FreeAndNil(Fcerp_zuct);
   inherited Destroy;
 end;
 
@@ -761,8 +761,8 @@ end;
 
 destructor TrzbaKontrolniKodyType.Destroy;
 begin
-  System.SysUtils.FreeAndNil(Fpkp);
-  System.SysUtils.FreeAndNil(Fbkp);
+  SysUtils.FreeAndNil(Fpkp);
+  SysUtils.FreeAndNil(Fbkp);
   inherited Destroy;
 end;
 

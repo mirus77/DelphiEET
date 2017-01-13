@@ -76,13 +76,16 @@ object TestEETForm: TTestEETForm
             Gutter.ShowLineNumbers = True
             Highlighter = synxmlsyn2
             ReadOnly = True
-            FontSmoothing = fsmNone
           end
         end
       end
       object tsResponse: TTabSheet
         Caption = 'Odpov'#283#271
         ImageIndex = 1
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object grpResponse: TGroupBox
           Left = 0
           Top = 0
@@ -112,7 +115,6 @@ object TestEETForm: TTestEETForm
             Gutter.ShowLineNumbers = True
             Highlighter = synxmlsyn2
             ReadOnly = True
-            FontSmoothing = fsmNone
           end
         end
       end
@@ -150,10 +152,9 @@ object TestEETForm: TTestEETForm
     Top = 39
     Width = 443
     Height = 25
-    Anchors = [akLeft, akTop, akRight, akBottom]
-    Caption = 'pnlCertInfo'
+    Anchors = [akLeft, akTop, akRight]
+    Caption = ' '
     Padding.Left = 5
-    ShowCaption = False
     TabOrder = 5
     object lblKeyValidFrom: TLabel
       Left = 6
@@ -163,6 +164,7 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeyValidFrom'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
     object lblKeyValidTo: TLabel
       Left = 94
@@ -172,6 +174,7 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeyValidTo'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
     object lblSpace1: TLabel
       Left = 80
@@ -188,10 +191,9 @@ object TestEETForm: TTestEETForm
     Top = 9
     Width = 443
     Height = 25
-    Anchors = [akLeft, akTop, akRight, akBottom]
-    Caption = 'pnlCertInfo'
+    Anchors = [akLeft, akTop, akRight]
+    Caption = ' '
     Padding.Left = 5
-    ShowCaption = False
     TabOrder = 6
     object lblKeySubject: TLabel
       Left = 6
@@ -201,12 +203,10 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeySubject'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
   end
   object synxmlsyn2: TSynXMLSyn
-    Options.AutoDetectEnabled = False
-    Options.AutoDetectLineLimit = 0
-    Options.Visible = False
     WantBracesParsed = False
     Left = 752
     Top = 208

@@ -1,11 +1,17 @@
 unit u_main;
 
 interface
-
+{$IFNDEF UNICODE}
+{$DEFINE LEGACY_RIO}
+{$ENDIF}
+// For Delphi XE3 and up:
+{$IF CompilerVersion >= 24.0 }
+  {$LEGACYIFEND ON}
+{$IFEND}
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
-  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, Soap.XSBuiltIns,
-  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$ENDIF} ComCtrls;
+  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, XSBuiltIns, InvokeRegistry,
+  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$IFEND} ComCtrls;
 
 type
   TTestEETForm = class(TForm)
@@ -35,11 +41,15 @@ type
     procedure btnFormatRequestClick(Sender: TObject);
     procedure btnFormatOdpovedClick(Sender: TObject);
   private
+    {$IFDEF LEGACY_RIO}
+    procedure BeforeSendExecute(const MethodName: string; var SOAPRequest: InvString);
+    {$ELSE}
     procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
+    {$ENDIF}
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
     {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
-    {$ENDIF}
+    {$IFEND}
   public
     procedure DoOdeslatTrzba;
   end;
@@ -50,7 +60,7 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP, XMLIntf, XMLDoc, u_EETTrzba, UITypes, u_EETSigner;
+  u_EETServiceSOAP, XMLIntf, XMLDoc, u_EETTrzba, {$IF CompilerVersion > 24} UITypes,{$IFEND} u_EETSigner;
 
 {$R *.dfm}
 
@@ -77,12 +87,20 @@ begin
   synmResponse.Lines.Text := synmResponse.Lines.Text;
 end;
 
+{$IFDEF LEGACY_RIO}
+procedure TTestEETForm.BeforeSendExecute(const MethodName: string; var SOAPRequest: InvString);
+begin
+  synmRequest.Lines.Text := SOAPRequest;
+  synmRequest.Lines.SaveToFile('request.xml');
+end;
+{$ELSE}
 procedure TTestEETForm.BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
 begin
   (SOAPRequest as TMemoryStream).SaveToFile('request.xml');
   SOAPRequest.Seek(0, soFromBeginning);
   synmRequest.Lines.LoadFromStream(SOAPRequest as TMemoryStream);
 end;
+{$ENDIF}
 
 procedure TTestEETForm.btnFormatOdpovedClick(Sender: TObject);
 begin
@@ -161,7 +179,7 @@ begin
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     EET.OnVerifyPeer := VerifyPeer;
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
-{$ENDIF}
+{$IFEND}
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
@@ -215,9 +233,9 @@ begin
      {$MESSAGE HINT 'USE_INDY'}
   {$ELSE}
      {$MESSAGE HINT 'USE WinInet default SOAP WebRequest'}
-  {$ENDIF}
+  {$IFEND}
     Odp := EET.OdeslaniTrzby(eTrzba);
-{$ENDIF}
+{$IFEND}
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
         if Odp.Potvrzeni <> nil then
@@ -289,9 +307,9 @@ end;
 procedure TTestEETForm.FormShow(Sender: TObject);
 begin
   if FileExists('request.xml') then
-    synmRequest.Lines.LoadFromFile('request.xml', TEncoding.UTF8);
+    synmRequest.Lines.LoadFromFile('request.xml'{$IFNDEF LEGACY_RIO}, TEncoding.UTF8{$ENDIF});
   if FileExists('response.xml') then
-    synmResponse.Lines.LoadFromFile('response.xml', TEncoding.UTF8);
+    synmResponse.Lines.LoadFromFile('response.xml'{$IFNDEF LEGACY_RIO}, TEncoding.UTF8{$ENDIF});
 end;
 
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
@@ -303,6 +321,6 @@ begin
       synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
     end;
 end;
-{$ENDIF}
+{$IFEND}
 
 end.

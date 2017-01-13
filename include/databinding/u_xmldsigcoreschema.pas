@@ -16,7 +16,7 @@ interface
 uses xmldom, XMLDoc, XMLIntf;
 
 type
-
+  UnicodeString = WideString;
 { Forward Decls }
 
   IXMLSignatureType = interface;

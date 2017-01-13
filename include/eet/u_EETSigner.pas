@@ -804,7 +804,7 @@ begin
   then raise EEETSignerException.Create(sSignerEmptyXML);
 
 {$IFNDEF USE_LIBEET}
-  Doc := nil; Node := nil;
+  Doc := nil; {Node := nil;}
   DSigCtx := xmlSecDSigCtxCreate(FMngr);
   try
     Buf := nil; BufSz := 0;
@@ -835,8 +835,8 @@ begin
       xmlBufferFree(Pointer(Buf));
     end;
   finally
-    if Node = nil
-    then xmlFreeNode(Node);
+//    if Node = nil
+//    then xmlFreeNode(Node);
     if Doc <> nil
     then xmlFreeDoc(Doc);
     xmlSecDSigCtxDestroy(DSigCtx);
@@ -847,7 +847,7 @@ begin
     begin
       XMLStream.SetSize(Length(output));
       XMLStream.Position := 0;
-      XMLStream.WriteBuffer(@output[1], Length(output));
+      XMLStream.WriteBuffer(PAnsiChar(output)^, Length(output));
     end;
 {$ENDIF}
 end;

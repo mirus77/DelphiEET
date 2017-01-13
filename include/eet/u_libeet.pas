@@ -6,8 +6,12 @@ interface
 {$MINENUMSIZE 4}
 {$M+}
 
+{$IF CompilerVersion >= 24.0}
+  {$LEGACYIFEND ON}
+{$IFEND}
+
 const
-  LIBEET_SO = 'libeetsigner.dll';
+  LIBEET_SO : string = 'libeetsigner.dll';
 
 type
   TlibeetLogEvent  = procedure(const file_: string; line: Longint; const func: string; const errorObject: string; const errorSubject: string; reason: Longint; const msg: string) of object;
@@ -207,7 +211,7 @@ var
   FlibeetHandle: THandle;
   Lock: TCriticalSection;
   ReferenceCount: Integer = 0;
-  curLibName : LPCWSTR = '';
+  curLibName : string = '';
 
 const
 
@@ -274,6 +278,10 @@ type
     end;
  {* X509 end types *}
 
+{$IF CompilerVersion <= 24.0}
+  function SetDLLDirectory(lpPathName:PWideChar):Bool; stdcall;
+     external kernel32 name 'SetDllDirectoryW';
+{$IFEND}
 
 procedure CheckForNil(ptr: Pointer; name:string);
 begin
@@ -293,7 +301,7 @@ var
   UTCSystemTime: TSystemTime;
   LocalFileTime: TFileTime;
   UTCFileTime: TFileTime;
-{$endif}
+{$ifend}
 begin
 {$if CompilerVersion >= 21) // Delphi XE and above}
   Result := TTimeZone.Local.ToLocalTime(UTCDateTime);
@@ -306,7 +314,7 @@ begin
   end else begin
     Result := UTCDateTime;  // Default to UTC if any conversion function fails.
   end;
-{$endif}
+{$ifend}
 end;
 
 procedure libeetErrorHandler(const file_: PAnsiChar; line: Longint; const func: PAnsiChar; const errorObject: PChar; const errorSubject: PAnsiChar; reason: Longint; const msg: PAnsiChar); cdecl;
@@ -718,14 +726,14 @@ begin
       begin
         libeetLogHelper := TlibeetLogHelper.Create;
         if path <> '' then
-          SetDllDirectory(PChar(path));
+          SetDllDirectory(PWideChar(WideString(path)));
         if libname <> '' then
-          curLibName := LPCWSTR(libname)
+          curLibName := libname
         else
           begin
             curLibName := LIBEET_SO;
           end;
-        FlibeetHandle := LoadLibrary(curLibName);
+        FlibeetHandle := LoadLibrary(PChar(curLibName));
         if FlibeetHandle <> 0 then
           begin
             {$IFDEF USE_LIBEET}

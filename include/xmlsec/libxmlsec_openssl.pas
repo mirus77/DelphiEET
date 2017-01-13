@@ -5,7 +5,7 @@ interface
 {$ALIGN 8}
 {$MINENUMSIZE 4}
 
-uses System.SysUtils, System.TimeSpan,  libxml2, libxmlsec, libeay32;
+uses SysUtils, {TimeSpan,}  libxml2, libxmlsec, libeay32;
 
 const
 {$IFDEF WIN32}
@@ -67,7 +67,7 @@ uses
 {$IFDEF DEBUG}
   vcruntime,
 {$ENDIF}
-  Windows, u_EETSignerExceptions, System.DateUtils, System.AnsiStrings;
+  Windows, u_EETSignerExceptions, DateUtils{$IF RTLVersion >= 25}, AnsiStrings{$IFEND};
 
 {$IFNDEF _DYNAMIC_LOAD_XMLSEC}
 function xmlSecOpenSSLAppKeysMngrAddCertsFile; external LIBXMLSECOPENSSL_SO;
@@ -178,6 +178,7 @@ function xmlSecOpenSSLX509CertGetTime(asn1_time: PASN1_TIME; var res: TDateTime)
 var
   buffer: array [0 .. 31] of AnsiChar;
   tz, Y, M, D, h, n, s: Integer;
+  TimeZone: TTimeZoneInformation;
 
   function Char2Int(D, u: AnsiChar): Integer;
   begin
@@ -200,7 +201,7 @@ begin
   tz := 0;
   s := 0;
   Y := 0; M := 0; D := 0; h := 0; n := 0;
-  System.AnsiStrings.StrLCopy(@buffer, asn1_time.data, asn1_time.length);
+  {$IF RTLVersion >= 25}AnsiStrings.{$IFEND}StrLCopy(@buffer, asn1_time.data, asn1_time.length);
   if asn1_time.asn1_type = V_ASN1_UTCTIME then
   begin
     if asn1_time.length < 10 then
@@ -216,7 +217,11 @@ begin
     if (buffer[10] >= '0') and (buffer[10] <= '9') and (buffer[11] >= '0') and (buffer[11] <= '9') then
       s := Char2Int(buffer[10], buffer[11]);
     if buffer[asn1_time.length - 1] = 'Z' then
-      tz := System.DateUtils.TTimeZone.Local.UtcOffset.Hours;
+      begin
+        GetTimeZoneInformation(TimeZone);
+        tz := TimeZone.Bias div -60;  //pro ÈR buï 1 nebo 2
+//        tz := DateUtils.TTimeZone.Local.UtcOffset.Hours;
+      end;
   end
   else if asn1_time.asn1_type = V_ASN1_GENERALIZEDTIME then
   begin
@@ -230,7 +235,11 @@ begin
     if (buffer[12] >= '0') and (buffer[12] <= '9') and (buffer[13] >= '0') and (buffer[13] <= '9') then
       s := Char2Int(buffer[12], buffer[13]);
     if buffer[asn1_time.length - 1] = 'Z' then
-      tz := System.DateUtils.TTimeZone.Local.UtcOffset.Hours;
+      begin
+        GetTimeZoneInformation(TimeZone);
+        tz := TimeZone.Bias div -60;  //pro ÈR buï 1 nebo 2
+//        tz := DateUtils.TTimeZone.Local.UtcOffset.Hours;
+      end;
   end;
   if tz > 0 then
     res := IncHour(EncodeDateTime(Y, M, D, h, n, s, 0), tz)

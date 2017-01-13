@@ -1,15 +1,17 @@
 unit u_EETTrzba;
 
 interface
-
+{$IFNDEF UNICODE}
+{$DEFINE LEGACY_RIO}
+{$ENDIF}
 uses
   Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, WebNode, Soap.OpConvertOptions, OPToSOAPDomConv, Soap.SOAPEnv,
+  SOAPHTTPTrans, WebNode, {OpConvertOptions,} OPToSOAPDomConv, SOAPEnv,
   {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
   {$ELSE}
      WinInet,
-  {$ENDIF}
+  {$IFEND}
   ActiveX, u_EETServiceSOAP, XMLDoc, XMLIntf, u_EETSigner;
 
 type
@@ -24,8 +26,13 @@ type
     IdSSLIOHandlerSocketOpenSSL1: TIdSSLIOHandlerSocketOpenSSL;
     {$ENDIF}
     procedure HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData: Pointer);
+    {$IFDEF LEGACY_RIO}
+    procedure HTTPRIO_BeforeExecute(const MethodName: string;
+      var SOAPRequest: InvString);
+    {$ELSE}
     procedure HTTPRIO_BeforeExecute(const MethodName: string;
       SOAPRequest: TStream);
+    {$ENDIF}
     procedure HTTPRIO_AfterExecute(const MethodName: string;
       SOAPResponse: TStream);
     function DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
@@ -41,7 +48,7 @@ type
     FEETService : EET;
 {$IF Defined(USE_DIRECTINDY)}
     FIdHttpClient : TIdHTTP;
-{$ENDIF}
+{$IFEND}
     FOnBeforeSendRequest: TBeforeExecuteEvent;
     FOnAfterSendRequest: TAfterExecuteEvent;
     FConnectTimeout: Integer;
@@ -52,7 +59,7 @@ type
     FErrorMessage: string;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     FOnVerifyPeer: TVerifyPeerEvent;
-{$ENDIF}
+{$IFEND}
     FRootCertFile: string;
     FHttpsTrustName: string;
   protected
@@ -64,6 +71,9 @@ type
     function GetEETRIO : TEETRIO;
     procedure SignMessage(SOAPRequest: TStream);
     procedure ValidateResponse(SOAPResponse: TStream);
+{$IFNDEF USE_LIBEET}
+    procedure InsertWsse(ParentNode : IXMLNode);
+{$ENDIF}
   public
     URL: string;
     constructor Create(AOwner : TComponent); override;
@@ -74,7 +84,7 @@ type
     function OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
     {$IF Defined(USE_DIRECTINDY)}
     function OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
-    {$ENDIF}
+    {$IFEND}
     function HasVarovani(Odpoved : OdpovedType) : Boolean;
     procedure SaveToXML(const parameters: Trzba; const DestStream : TStream);
     procedure LoadFromXML(const parameters: Trzba; const SourceStream : TStream);
@@ -82,7 +92,7 @@ type
     function AddTrustedCertFromStream(const CerStream: TStream) : integer;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     function DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
-{$ENDIF}
+{$IFEND}
   published
     property PFXStream : TMemoryStream read FPFXStream;
     property PFXPassword : string read FPFXPassword write FPFXPassword;
@@ -99,7 +109,7 @@ type
     property Signer : TEETSigner read FSigner;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
-{$ENDIF}
+{$IFEND}
   end;
 
 implementation
@@ -108,18 +118,7 @@ uses StrUtils,
 {$IFNDEF USE_LIBEET}
    u_wsse, u_wsse_utils, u_xmldsigcoreschema, SOAPConst,
 {$ENDIF}
-   DateUtils, TimeSpan;
-
-{$IFNDEF USE_LIBEET}
-type
-  TEETHeader = class(TSOAPHeader)
-  public
-   function ObjectToSOAP(RootNode, ParentNode: IXMLNode;
-                            const ObjConverter: IObjConverter;
-                            const NodeName, NodeNamespace, ChildNamespace: InvString; ObjConvOpts: TObjectConvertOptions;
-                            out RefID: InvString): IXMLNode; override;
-  end;
-{$ENDIF}
+   DateUtils{, TimeSpan};
 
 function TEETTrzba.AddTrustedCertFromFileName(const CerFileName: TFileName): integer;
 var
@@ -148,7 +147,7 @@ begin
 {$IF Defined(USE_DIRECTINDY)}
   FIdHttpClient := TIdHTTP.Create(nil);
   FIdHttpClient.IOHandler := TIdSSLIOHandlerSocketOpenSSL.Create(FIdHttpClient);
-{$ENDIF}
+{$IFEND}
   FSigner := TEETSigner.Create(nil);
   FPFXPassword := '';
   FPFXStream := TMemoryStream.Create;
@@ -163,7 +162,7 @@ destructor TEETTrzba.Destroy;
 begin
 {$IF Defined(USE_DIRECTINDY)}
   FIdHttpClient.Free;
-{$ENDIF}
+{$IFEND}
   FSigner.Free;
   FCERTrustedList.Free;
   FPFXStream.Free;
@@ -197,7 +196,7 @@ begin
     end;
   if Result and Assigned(FOnVerifyPeer) then Result := FOnVerifyPeer(Certificate, Result, ADepth, AError);
 end;
-{$ENDIF}
+{$IFEND}
 
 function TEETTrzba.GetEETRIO: TEETRIO;
 begin
@@ -236,6 +235,65 @@ begin
   IsInitialized:=true;
 end;
 
+{$IFNDEF USE_LIBEET}
+procedure TEETTrzba.InsertWsse(ParentNode: IXMLNode);
+var
+  SecHeader : IXMLSecurityHeaderType;
+  Signature : IXMLSignatureType;
+  SigReference : IXMLReferenceType;
+  SigTransForm : IXMLTransformType;
+  SecTokenReference : IXMLSecurityTokenReferenceType;
+  SecReference : u_wsse.IXMLReferenceType;
+begin
+  // Security
+  SecHeader := NewSecurity;
+  SecHeader.OwnerDocument.Options := [doNodeAutoCreate];  // tohle zabrani pomalemu vytvareni ChildNodes.Add(???)
+  SecHeader.Attributes['SOAP-ENV:mustUnderstand'] := '1';
+  SecHeader.BinarySecurityToken.EncodingType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
+  SecHeader.BinarySecurityToken.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
+  SecHeader.BinarySecurityToken.Attributes['wsu:Id'] := 'id-TheCert';
+
+  // Signature
+  Signature := NewSignature;
+  Signature.OwnerDocument.Options := [doNodeAutoCreate];
+  Signature.SignedInfo.CanonicalizationMethod.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
+  Signature.Id := 'id-TheSignature';
+  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:= 'soap';
+  Signature.SignedInfo.SignatureMethod.Algorithm:='http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+
+  SigReference := Signature.SignedInfo.Reference.Add;
+  SigReference.URI:='#id-TheBody';
+
+  SigTransForm := SigReference.Transforms.Add;
+  SigTransForm.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
+  SigTransForm.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:='';
+
+  SigReference.DigestMethod.Algorithm:='http://www.w3.org/2001/04/xmlenc#sha256';
+  SigReference.DigestValue:='';
+
+  Signature.SignatureValue.Text := '';
+
+  // SecurityTokenReferenco pro KeyInfo;
+  SecTokenReference := NewSecurityTokenReference;
+  SecTokenReference.OwnerDocument.Options := [doNodeAutoCreate];
+  SecTokenReference.Attributes['wsu:Id'] := 'id-TheSecurityTokenReference';
+
+  SecReference :=  NewReference;
+  SecReference.OwnerDocument.Options := [doNodeAutoCreate];
+  SecReference.URI := '#id-TheCert';
+  SecReference.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
+
+  Signature.KeyInfo.Id := 'TheKeyInfo';
+
+  SecTokenReference.ChildNodes.Add(SecReference);
+  Signature.KeyInfo.ChildNodes.Add(SecTokenReference);
+
+  SecHeader.ChildNodes.Add(Signature);
+
+  ParentNode.ChildNodes.Add(SecHeader);
+end;
+{$ENDIF}
+
 procedure TEETTrzba.LoadFromXML(const parameters: Trzba; const SourceStream: TStream);
 var
   Converter: IObjConverter;
@@ -255,11 +313,42 @@ begin
 end;
 
 function TEETTrzba.NewTrzba: Trzba;
+
+  function Hexa(cislo: Integer): String;
+  var vrat: String;
+  begin
+    vrat := IntToStr(cislo);
+    if cislo = 10 then vrat := 'a';
+    if cislo = 11 then vrat := 'b';
+    if cislo = 12 then vrat := 'c';
+    if cislo = 13 then vrat := 'd';
+    if cislo = 14 then vrat := 'e';
+    if cislo = 15 then vrat := 'f';
+    Hexa := vrat;
+  end;
+
+  function NewGuid : string;
+  var I : Integer;
+  begin
+    Result := '';
+    Randomize;
+    for I := 1 to 8 do Result := Result + Hexa(Round(Int(Random(16))));
+    Result := Result + '-';
+    for I := 1 to 4 do Result := Result + Hexa(Round(Int(Random(16))));
+    Result := Result + '-4';
+    for I := 1 to 3 do Result := Result + Hexa(Round(Int(Random(16))));
+    Result := Result + '-';
+    Result := Result + Hexa(8 + Round(Int(Random(4))));
+    for I := 1 to 3 do Result := Result + Hexa(Round(Int(Random(16))));
+    Result := Result + '-';
+    for I := 1 to 12 do Result := Result + Hexa(Round(Int(Random(16))));
+  end;
 begin
   Result := Trzba.Create;
   Result.Hlavicka := TrzbaHlavickaType.Create;
-  Result.Hlavicka.uuid_zpravy := TGuid.NewGuid.ToString;
-  Result.Hlavicka.uuid_zpravy := LowerCase(Copy(Result.Hlavicka.uuid_zpravy, 2, Length(Result.Hlavicka.uuid_zpravy)-2));
+  Result.Hlavicka.uuid_zpravy := NewGuid;
+//  Result.Hlavicka.uuid_zpravy := TGuid.NewGuid.ToString;
+//  Result.Hlavicka.uuid_zpravy := LowerCase(Copy(Result.Hlavicka.uuid_zpravy, 2, Length(Result.Hlavicka.uuid_zpravy)-2));
 
   Result.Hlavicka.dat_odesl := dateTime.Create;
   Result.Hlavicka.dat_odesl.UseZeroMilliseconds := false;
@@ -297,9 +386,6 @@ end;
 function TEETTrzba.OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean): Odpoved;
 var
   Service : EET;
-{$IFNDEF USE_LIBEET}
-  Hdr : TEETHeader;
-{$ENDIF}
 begin
   FValidResponse := True;
   FErrorCode := 0;
@@ -307,28 +393,19 @@ begin
   Result := nil;
 
   Service := GetEET(False, URL, GetEETRIO);
-{$IFNDEF USE_LIBEET}
-  Hdr := TEETHeader.Create;
-   try
-     (Service as ISOAPHeaders).Send(Hdr); { add the header to outgoing message }
-{$ENDIF}
-     if not SendOnly then SignTrzba(parameters);
+  if not SendOnly then SignTrzba(parameters);
 
-     try
-       Result := Service.OdeslaniTrzby(parameters); { invoke the service }
-     except
-       on E:Exception do
-         begin
-           FErrorCode := -1;
-           FErrorMessage := E.Message;
-         end;
+  try
+   Result := Service.OdeslaniTrzby(parameters); { invoke the service }
+  except
+   on E:Exception do
+     begin
+       FErrorCode := -1;
+       FErrorMessage := E.Message;
      end;
-{$IFNDEF USE_LIBEET}
-   finally
-     Hdr.Free;
-   end;
-{$ENDIF}
+  end;
 end;
+
 {$IF Defined(USE_DIRECTINDY)}
 function TEETTrzba.OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly: Boolean): Odpoved;
 var
@@ -336,8 +413,6 @@ var
 {$IFNDEF USE_LIBEET}
   DocTrzba : IXMLDocument;
   Service : EET;
-  Hdr : TEETHeader;
-  sRefId : InvString;
   SoapEnv : TSoapEnvelope;
   Doc : IXMLDocument;
   HeaderNode : IXMLNode;
@@ -396,13 +471,11 @@ begin
 {$IFNDEF USE_LIBEET}
   DocTrzba := NewXMLDocument;
   Service := GetEET(False, URL, GetEETRIO);
-  Hdr := TEETHeader.Create;
   SoapEnv := TSoapEnvelope.Create;
   Doc := NewXMLDocument;
-   try
-     Doc.Options := [doNodeAutoCreate];
-     DocTrzba.Options := [doNodeAutoCreate];
-     (Service as ISOAPHeaders).Send(Hdr); { add the header to outgoing message }
+  try
+      Doc.Options := [doNodeAutoCreate];
+      DocTrzba.Options := [doNodeAutoCreate];
 {$ENDIF}
      if not SendOnly then SignTrzba(parameters);
 
@@ -417,7 +490,6 @@ begin
           DocTrzba.LoadFromStream(SoapRequest);
           EnvNode := SoapEnv.MakeEnvelope(Doc, []);
           HeaderNode := SoapEnv.MakeHeader(EnvNode, []);
-          Hdr.ObjectToSOAP(Doc.DocumentElement, HeaderNode, nil, '', '', '', [], sRefId);
           BodyNode := SoapEnv.MakeBody(EnvNode, []);
           BodyNode.ChildNodes.Add(DocTrzba.DocumentElement);
           SoapRequest.Clear;
@@ -452,13 +524,12 @@ begin
 {$IFNDEF USE_LIBEET}
    finally
      SoapEnv.Free;
-     Hdr.Free;
      Doc := nil;
      DocTrzba := nil;
    end;
 {$ENDIF}
 end;
-{$ENDIF}
+{$IFEND}
 
 procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
 var
@@ -466,7 +537,7 @@ var
   NodeObject: IXMLNode;
   NodeRoot: IXMLNode;
   XML: IXMLDocument;
-  XMLStr: String;
+  XMLStr: {$IFDEF LEGACY_RIO}InvString{$ELSE}String{$ENDIF};
   XMLAnsiStr: AnsiString;
 begin
   XML:= TXMLDocument.Create(nil);
@@ -476,7 +547,7 @@ begin
     XML.Options := [doNodeAutoCreate];
     XML.Encoding := 'utf-8';
     NodeRoot:= XML.CreateNode('Root');
-    NodeObject:= parameters.ObjectToSOAP(NodeRoot, NodeRoot, Converter, 'Trzba', '', '', [ocoDontPrefixNode, ocoDontPutTypeAttr], XMLStr);
+    NodeObject:= parameters.ObjectToSOAP(NodeRoot, NodeRoot, Converter, 'Trzba', '', {$IFNDEF LEGACY_RIO} '',{$ENDIF} [ocoDontPrefixNode, ocoDontPutTypeAttr], XMLStr);
     NodeObject.Attributes['xmlns'] := FISKXML_TNSSCHEMA_URI;
     XMLAnsiStr := AnsiString(NodeObject.XML);
     XML.Active := False;
@@ -514,7 +585,7 @@ begin
   iNode := xmlDoc.AddChild('soap:Envelope');
   iNode.DeclareNamespace('soap', 'http://schemas.xmlsoap.org/soap/envelope/');
   iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
-  iNode.ChildNodes.Insert(0,xmlDocTemp.DocumentElement.ChildNodes.FindNode(SSoapNameSpacePre + ':Header'));
+  iNode.AddChild(SSoapNameSpacePre + ':Header', 'http://schemas.xmlsoap.org/soap/envelope/');
   iNode := iNode.AddChild('soap:Body');
   iNode.ChildNodes.Add(xmlDocTemp.DocumentElement.ChildNodes.FindNode(SSoapNameSpacePre + ':Body').ChildNodes[0]);
 
@@ -533,6 +604,7 @@ begin
       iNode := iNode.ChildNodes.FindNode( SSoapNameSpacePre + ':Header');
       if iNode <> nil then
         begin
+          InsertWsse(iNode);
           iNode := iNode.ChildNodes.FindNode('wsse:Security', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
           if iNode <> nil then
             begin
@@ -544,6 +616,7 @@ begin
     end;
   (SOAPRequest as TMemoryStream).Clear;
   xmlDoc.SaveToStream(SOAPRequest as TMemoryStream);
+  (SOAPRequest as TMemoryStream).SaveToFile('SoapRequest_2.xml');
 {$ENDIF}
 
   FSigner.SignXML(SOAPRequest as TMemoryStream);
@@ -558,11 +631,13 @@ var
     Neg: array[Boolean] of string=  ('+', '-');
   var
     Bias: Integer;
-    tz:TTimeZone;
+    tz: TTimeZoneInformation; //TTimeZone;
   begin
     Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
-    tz := TTimeZone.Local;
-    Bias := Trunc(tz.GetUTCOffset(Value).Negate.TotalMinutes);
+//    tz := TTimeZone.Local;
+    GetTimeZoneInformation(tz);
+    Bias := tz.Bias;  //pro ÈR buï -60 nebo -120
+//    Bias := Trunc(tz.GetUTCOffset(Value).Negate.TotalMinutes);
     if (Bias <> 0) then
     begin
       Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
@@ -631,14 +706,18 @@ begin
 
   HTTPWebNode.IOHandler := IdSSLIOHandlerSocketOpenSSL1;
   {$ELSE}
-  HTTPWebNode.GetHTTPReqResp.OnWinInetError := DoOnWinInetError;
+    {$IFNDEF LEGACY_RIO}
+      HTTPWebNode.GetHTTPReqResp.OnWinInetError := DoOnWinInetError;
+    {$ENDIF}
   {$ENDIF}
 
+  {$IFNDEF LEGACY_RIO}
   HTTPWebNode.WebNodeOptions := [];
+  {$ENDIF}
 
   HTTPWebNode.OnBeforePost := HTTPWebNode_BeforePost;
-  OnBeforeExecute:=HTTPRIO_BeforeExecute;
-  OnAfterExecute:=HTTPRIO_AfterExecute;
+  OnBeforeExecute := HTTPRIO_BeforeExecute;
+  OnAfterExecute := HTTPRIO_AfterExecute;
 end;
 
 destructor TEETRIO.Destroy;
@@ -661,6 +740,31 @@ begin
     end;
 end;
 
+{$IFDEF LEGACY_RIO}
+procedure TEETRIO.HTTPRIO_BeforeExecute(const MethodName: string; var SOAPRequest: InvString);
+var
+  MemStream: TMemoryStream;
+  S: string;
+begin
+  if Assigned(FEET) then
+    begin
+      MemStream := TMemoryStream.Create;
+      try
+        S := AnsiString(SOAPRequest);
+        MemStream.Write(S[1], Length(S));
+        MemStream.Position := 0;
+        FEET.SignMessage(MemStream);
+        MemStream.Position := 0;
+        SetLength(S, MemStream.Size);
+        MemStream.Read(S[1], MemStream.Size);
+        SOAPRequest := InvString(S);
+      finally
+        MemStream.Free;
+      end;
+      if Assigned(FEET.OnBeforeSendRequest) then FEET.OnBeforeSendRequest(MethodName, SOAPRequest);
+    end;
+end;
+{$ELSE}
 procedure TEETRIO.HTTPRIO_BeforeExecute(const MethodName: string; SOAPRequest: TStream);
 begin
   SOAPRequest.Position:=0;
@@ -670,7 +774,7 @@ begin
       if Assigned(FEET.OnBeforeSendRequest) then FEET.OnBeforeSendRequest(MethodName, SOAPRequest);
     end;
 end;
-
+{$ENDIF}
 
 procedure TEETRIO.HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData: Pointer);
 begin
@@ -688,66 +792,5 @@ begin
         end;
 {$ENDIF}
 end;
-
-{ TEETHeader }
-{$IFNDEF USE_LIBEET}
-function TEETHeader.ObjectToSOAP(RootNode, ParentNode: IXMLNode; const ObjConverter: IObjConverter; const NodeName, NodeNamespace,
-  ChildNamespace: InvString; ObjConvOpts: TObjectConvertOptions; out RefID: InvString): IXMLNode;
-var
-  SecHeader : IXMLSecurityHeaderType;
-  Signature : IXMLSignatureType;
-  SigReference : IXMLReferenceType;
-  SigTransForm : IXMLTransformType;
-  SecTokenReference : IXMLSecurityTokenReferenceType;
-  SecReference : u_wsse.IXMLReferenceType;
-begin
-  // Security
-  SecHeader := NewSecurity;
-  SecHeader.OwnerDocument.Options := [doNodeAutoCreate];  // tohle zabrani pomalemu vytvareni ChildNodes.Add(???)
-  SecHeader.Attributes['SOAP-ENV:mustUnderstand'] := '1';
-  SecHeader.BinarySecurityToken.EncodingType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
-  SecHeader.BinarySecurityToken.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
-  SecHeader.BinarySecurityToken.Attributes['wsu:Id'] := 'id-TheCert';
-
-  // Signature
-  Signature := NewSignature;
-  Signature.OwnerDocument.Options := [doNodeAutoCreate];
-  Signature.SignedInfo.CanonicalizationMethod.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
-  Signature.Id := 'id-TheSignature';
-  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:= 'soap';
-  Signature.SignedInfo.SignatureMethod.Algorithm:='http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
-
-  SigReference := Signature.SignedInfo.Reference.Add;
-  SigReference.URI:='#id-TheBody';
-
-  SigTransForm := SigReference.Transforms.Add;
-  SigTransForm.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
-  SigTransForm.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:='';
-
-  SigReference.DigestMethod.Algorithm:='http://www.w3.org/2001/04/xmlenc#sha256';
-  SigReference.DigestValue:='';
-
-  Signature.SignatureValue.Text := '';
-
-  // SecurityTokenReferenco pro KeyInfo;
-  SecTokenReference := NewSecurityTokenReference;
-  SecTokenReference.OwnerDocument.Options := [doNodeAutoCreate];
-  SecTokenReference.Attributes['wsu:Id'] := 'id-TheSecurityTokenReference';
-
-  SecReference :=  NewReference;
-  SecReference.OwnerDocument.Options := [doNodeAutoCreate];
-  SecReference.URI := '#id-TheCert';
-  SecReference.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
-
-  Signature.KeyInfo.Id := 'TheKeyInfo';
-
-  SecTokenReference.ChildNodes.Add(SecReference);
-  Signature.KeyInfo.ChildNodes.Add(SecTokenReference);
-
-  SecHeader.ChildNodes.Add(Signature);
-
-  ParentNode.ChildNodes.Add(SecHeader);
-end;
-{$ENDIF}
 
 end.
