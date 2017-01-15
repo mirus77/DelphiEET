@@ -10,7 +10,7 @@ Demo need library.
 ```
 libeetsigner.dll # source at : https://github.com/mirus77/libeet
  - needed installed Visual C++ Redistributable Packages for Visual Studio 2013
-openssl 1.0.x (libeay32.dll, ssleay32.dll) libs for Indy Http comunication
+openssl 1.0.x (libeay32.dll, ssleay32.dll) libs for Indy Https comunication
  - can be used openssl lib from https://indy.fulgan.com/SSL/ or from project with dependencies libgcc_s_dw2-1.dll and libwinpthread-1.dll
 ```
 Delphi project Options for demo TestEET.dpr with USE_LIBEET
