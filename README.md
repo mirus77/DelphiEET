@@ -1,7 +1,7 @@
 # DelphiEET
 Delphi component for registered sale data messages. http://www.etrzby.cz
 
-- It may be compiled with Delphi 2007 and Delphi 10.2 Berlin
+- It may be compiled with Delphi 2007 (only WinInet) and Delphi 10.2 Berlin (Indy and WinInet)
 
 
 ## Use  with USE_LIBEET

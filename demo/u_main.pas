@@ -48,7 +48,7 @@ type
     {$ENDIF}
     procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
     {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    function VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer) : boolean;
+    function VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}) : boolean;
     {$IFEND}
   public
     procedure DoOdeslatTrzba;
@@ -83,22 +83,28 @@ end;
 procedure TTestEETForm.AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
 begin
   (SOAPResponse as TMemoryStream).SaveToFile('response.xml');
-  synmResponse.Lines.LoadFromStream(SOAPResponse as TMemoryStream);
-  synmResponse.Lines.Text := synmResponse.Lines.Text;
 end;
 
 {$IFDEF LEGACY_RIO}
 procedure TTestEETForm.BeforeSendExecute(const MethodName: string; var SOAPRequest: InvString);
+var
+  MemStream : TMemoryStream;
+  S : string;
 begin
-  synmRequest.Lines.Text := SOAPRequest;
-  synmRequest.Lines.SaveToFile('request.xml');
+  MemStream := TMemoryStream.Create;
+  try
+    MemStream.Position := 0;
+    MemStream.Write(S[1], Length(S));
+    MemStream.SaveToFile('request.xml');
+  finally
+    MemStream.Free;
+  end;
 end;
 {$ELSE}
 procedure TTestEETForm.BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
 begin
   (SOAPRequest as TMemoryStream).SaveToFile('request.xml');
   SOAPRequest.Seek(0, soFromBeginning);
-  synmRequest.Lines.LoadFromStream(SOAPRequest as TMemoryStream);
 end;
 {$ENDIF}
 
@@ -187,6 +193,8 @@ begin
 //    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
     EET.PFXPassword := 'eet';
     EET.ConnectTimeout := 2000;
+//    EET.UseProxy := true;
+//    EET.ProxyHost := 'proxy';
     EET.Initialize;
 
     lblKeySubject.Caption := 'Pøedmìt :' + EET.Signer.PrivKeyInfo.Subject;
@@ -234,8 +242,14 @@ begin
   {$ELSE}
      {$MESSAGE HINT 'USE WinInet default SOAP WebRequest'}
   {$IFEND}
-    Odp := EET.OdeslaniTrzby(eTrzba);
+    Odp := EET.OdeslaniTrzby(eTrzba, false, 5000);
 {$IFEND}
+
+    EET.RequestStream.Position := 0;
+    EET.ResponseStream.Position := 0;
+    synmRequest.Lines.LoadFromStream(EET.RequestStream);
+    synmResponse.Lines.LoadFromStream(EET.ResponseStream);
+
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
         if Odp.Potvrzeni <> nil then
@@ -313,13 +327,15 @@ begin
 end;
 
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): boolean;
+function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}): boolean;
 begin
   Result := AOk;
+  {$IFNDEF LEGACY_RIO}
   if ADepth = 0 then
     begin
       synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
     end;
+  {$ENDIF}
 end;
 {$IFEND}
 
