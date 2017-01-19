@@ -227,11 +227,18 @@ begin
 //    EET.SignTrzba(eTrzba); // normalizace datumu a vygenervani PKP,BKP
 
     // test ulozeni do XML a nacteni z XML
+    // nacteni nefunguje v Delphi 2007
+//    ms.Clear;
 //    EET.SaveToXML(eTrzba, ms);
 //    ms.Position := 0;
+//    ms.SaveToFile('eTrzba.xml');
 //    eTrzba.Free;
 //    eTrzba := EET.NewTrzba;
 //    EET.LoadFromXML(eTrzba, ms);
+//    ms.Clear;
+//    EET.SaveToXML(eTrzba, ms);
+//    ms.Position := 0;
+//    ms.SaveToFile('eTrzbaLoaded.xml');
 
 {$IF Defined(USE_DIRECTINDY)}
 {$MESSAGE HINT 'USE_DIRECTINDY'}
@@ -245,6 +252,14 @@ begin
     Odp := EET.OdeslaniTrzby(eTrzba, false, 5000);
 {$IFEND}
 
+    ms.Clear;
+    EET.SaveToXML(eTrzba, ms);
+    ms.Position := 0;
+    ms.SaveToFile('eTrzbaSigned.xml');
+
+    // nacteni xml Soap Request po zpracovani
+    // nacteni xml Soap Response po zpracovani
+    // vyjmuto z eventù Before a After, protože zamrzala aplikace pøi použití WainForSingleObject
     EET.RequestStream.Position := 0;
     EET.ResponseStream.Position := 0;
     synmRequest.Lines.LoadFromStream(EET.RequestStream);

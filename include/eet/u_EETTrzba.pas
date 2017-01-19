@@ -677,7 +677,7 @@ begin
     NodeObject.Attributes['xmlns'] := FISKXML_TNSSCHEMA_URI;
     XMLAnsiStr := AnsiString(NodeObject.XML);
     XML.Active := False;
-    XMLAnsiStr := AnsiString(ReplaceStr(string(XMLAnsiStr), ' xmlns=""', ''));
+    XMLAnsiStr := AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', '');
     DestStream.WriteBuffer(Pointer(XMLAnsiStr)^, Length(XMLAnsiStr) * SizeOf(XMLAnsiStr[1]));
   finally
     XML := nil;
@@ -978,6 +978,7 @@ end;
 procedure TEETTrzbaThread.Execute;
 begin
   try
+    FOdpoved := nil;
     CoInitialize(nil);
     try
       FOdpoved := EET.OdeslaniTrzby(FTrzba);
