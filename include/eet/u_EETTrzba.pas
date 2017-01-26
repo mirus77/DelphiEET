@@ -677,7 +677,7 @@ begin
     NodeObject.Attributes['xmlns'] := FISKXML_TNSSCHEMA_URI;
     XMLAnsiStr := AnsiString(NodeObject.XML);
     XML.Active := False;
-    XMLAnsiStr := AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', '');
+    XMLAnsiStr := AnsiString(AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', ''));
     DestStream.WriteBuffer(Pointer(XMLAnsiStr)^, Length(XMLAnsiStr) * SizeOf(XMLAnsiStr[1]));
   finally
     XML := nil;

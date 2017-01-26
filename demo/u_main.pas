@@ -93,6 +93,7 @@ var
 begin
   MemStream := TMemoryStream.Create;
   try
+    S := UTF8Encode(SOAPRequest);
     MemStream.Position := 0;
     MemStream.Write(S[1], Length(S));
     MemStream.SaveToFile('request.xml');
