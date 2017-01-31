@@ -5,7 +5,7 @@ interface
 {$ALIGN 8}
 {$MINENUMSIZE 4}
 
-uses SysUtils, {TimeSpan,}  libxml2, libxmlsec, libeay32;
+uses SysUtils, Classes, {TimeSpan,}  libxml2, libxmlsec, libeay32;
 
 const
 {$IFDEF WIN32}
@@ -39,7 +39,7 @@ function xmlSecOpenSSLKeyDataX509Id: xmlSecKeyDataId;
 
 function xmlSecOpenSSLX509CertGetTime(asn1_time: PASN1_TIME; var res: TDateTime): Longint;
 function xmlSecOpenSSLX509CertGetSerialNumber(SN: pASN1_INTEGER; var res: string): Longint;
-function xmlSecOpenSSLX509CertGetSubject(Subj: pX509_NAME; var res: string): Longint;
+function xmlSecOpenSSLX509CertGetX509Name(Subj: pX509_NAME; var res: string): Longint;
 function xmlSecOpenSSLX509CertBase64DerWrite(cert : pX509; base64LineWrap : Integer): string;
 
 {$IFDEF DEBUG}
@@ -112,6 +112,46 @@ begin
     Result := Result + Format('%.2x', [LPtr^]);
     Inc(LPtr);
   end;
+end;
+
+function ASN1String_To_UTF8(aText : String) : string;
+var
+  buff: String;
+  I : Integer;
+  iLen : Integer;
+  Ch : AnsiChar;
+begin
+  Result := '';
+  iLen := Length(aText);
+  setLength(buff, 2);
+  I := 1;
+  while I <= iLen do
+    begin
+      if aText[I] = '\' then
+        begin
+          if (I + 3) < iLen then
+            begin
+              if aText[I+1] = 'x' then
+                begin
+                  Inc(I);
+                  Inc(I);
+                  buff[1] := aText[I];
+                  Inc(I);
+                  buff[2] := aText[I];
+                  Ch := #0;
+                  HexToBin(PChar(LowerCase(buff)), @ch, 1);
+                  Result := Result + string(ch);
+                end
+              else
+                Result := Result + aText[I];
+            end
+          else
+            Result := Result + aText[I];
+        end
+      else
+        Result := Result + aText[I];
+      Inc(I);
+    end;
 end;
 
 {$IFDEF DEBUG}
@@ -253,7 +293,7 @@ begin
   res := BytesToHexString(SN.data, SN.length);
 end;
 
-function xmlSecOpenSSLX509CertGetSubject(Subj: pX509_NAME; var res: string): Longint;
+function xmlSecOpenSSLX509CertGetX509Name(Subj: pX509_NAME; var res: string): Longint;
 var
   LOneLine: array[0..2048] of AnsiChar;
 begin
@@ -261,7 +301,11 @@ begin
   if Subj = nil then
     res := ''
   else
-    res :=  string(X509_NAME_oneline(Subj, @LOneLine[0], SizeOf(LOneLine)))
+  {$IFDEF UNICODE}
+    res := UTF8ToWideString(AnsiString(ASN1String_To_UTF8(string(X509_NAME_oneline(Subj, @LOneLine[0], SizeOf(LOneLine))))));
+  {$ELSE}
+    res := UTF8Decode(AnsiString(ASN1String_To_UTF8(string(X509_NAME_oneline(Subj, @LOneLine[0], SizeOf(LOneLine))))));
+  {$ENDIF}
 end;
 
 function xmlSecOpenSSLX509CertBase64DerWrite(cert : pX509; base64LineWrap : Integer): string;

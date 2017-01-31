@@ -80,6 +80,7 @@ type
     function GetEETRIO : TEETRIO;
     procedure SignMessage(SOAPRequest: TStream);
     procedure ValidateResponse(SOAPResponse: TStream);
+    function EETDateTimeToXMLTime(Value: TDateTime): string;
 {$IFNDEF USE_LIBEET}
     procedure InsertWsse(ParentNode : IXMLNode);
 {$ENDIF}
@@ -88,6 +89,7 @@ type
     constructor Create(AOwner : TComponent); override;
     destructor Destroy; override;
     procedure Initialize;
+    procedure Finalize;
     function NewTrzba : Trzba;
     function SignTrzba(const parameters: Trzba): Boolean;
     function OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean = false; aTimeOut : Integer = 0): Odpoved;
@@ -130,18 +132,13 @@ type
 
   TEETTrzbaThread = class(TThread)
   private
-    FEET: EET;
-    FErrorCode: Integer;
-    FErrorMessage: String;
-    FOdpoved: Odpoved;
-    FTrzba: Trzba;
   public
+    ErrMessage : String;
+    ErrCode: Integer;
+    EET: EET;
+    EETOdpoved : Odpoved;
+    EETTrzba: Trzba;
     procedure Execute; override;
-    property EET : EET read FEET write FEET;
-    property ETrzba : Trzba read FTrzba write FTrzba;
-    property EETOdpoved : Odpoved read FOdpoved;
-    property ErrorCode : Integer read FErrorCode;
-    property ErrorMessage : String read FErrorMessage;
   end;
 
 implementation
@@ -230,6 +227,75 @@ begin
   FPFXStream.Free;
   CoUnInitialize;
   inherited;
+end;
+
+function TEETTrzba.EETDateTimeToXMLTime(Value: TDateTime): string;
+
+const
+  Neg: array[Boolean] of string=  ('+', '-');
+var
+  Bias: Integer;
+
+  // http://qc.embarcadero.com/wc/qcmain.aspx?d=43488
+  // matches the relative standard or daylight date to a real date in a given year
+  function EncodeDayLightChange (Change : TSystemTime; const Year : Word) : TDateTime;
+  begin
+    // wDay indicates the nth occurance of the day specified in wDayOfWeek in the given month
+    // wDayOfWeek indicates the day (0=sunday,  1=monday, ...,6=saturday)
+    // delphi coding is             (7=sunday,  1=monday, ...,6=saturday)
+    with change do begin
+      if wDayOfWeek = 0 then wDayOfWeek := 7;
+      // Encoding the day of change (if wDay = 5 then try it and if needed decrement to find the last
+      // occurance of the day in this month)
+      while not TryEncodeDayOfWeekInMonth (Year, wMonth, wDay, wDayOfWeek, result) do begin
+        dec (wday); // we assume there are only 4 occurances of the given day
+        if wDay < 1 then // this is just to make sure it realy terminates
+          TryEncodeDayOfWeekInMonth (Year, wMonth, 1, 7, result)
+      end;
+    // finally add the time when change is due
+    result := result + EncodeTime (wHour, wMinute, 0, 0);
+    end;
+  end;
+
+  function GetTimeZoneBias(const Date: TDateTime): Integer;
+  var
+    TimeZoneInfo  : TTimeZoneInformation;
+    DayLightBegin : tDateTime;
+    DayLightEnd   : tDateTime;
+    Y,M,D         : Word;
+
+  begin
+    case GetTimeZoneInformation(TimeZoneInfo) of
+      TIME_ZONE_ID_UNKNOWN: Result  := TimeZoneInfo.Bias;
+      TIME_ZONE_ID_STANDARD,
+      TIME_ZONE_ID_DAYLIGHT: begin
+                               Result := TimeZoneInfo.Bias;
+                               // is the time we want to convert in the daylight intervall ?
+                               DecodeDate(Date,Y,M,D);
+                               DayLightEnd   := EncodeDayLightChange (TimeZoneInfo.StandardDate, Y);
+                               DayLightBegin := EncodeDayLightChange (TimeZoneInfo.DaylightDate, Y);
+                               if (Date >= DayLightBegin) and (Date < DayLightEnd) then
+                                 Result := Result + TimeZoneInfo.DaylightBias;
+                              end;
+    else
+      Result := 0;
+    end;
+  end;
+
+begin
+  Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
+  Bias := GetTimeZoneBias(Value);
+  Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
+                                     Abs(Bias) div MinsPerHour,
+                                     Abs(Bias) mod MinsPerHour]);
+end;
+
+
+procedure TEETTrzba.Finalize;
+begin
+  if FSigner.Active then FSigner.Active := False;
+  FCERTrustedList.Clear;
+  IsInitialized := False;
 end;
 
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
@@ -433,20 +499,20 @@ begin
   Result.Data := TrzbaDataType.Create;
   Result.Data.dat_trzby := dateTime.Create;
   Result.Data.dat_trzby.UseZeroMilliseconds := false;
-  Result.Data.celk_trzba := CastkaType.Create;
-  Result.Data.cerp_zuct := CastkaType.Create;
-  Result.Data.cest_sluz := CastkaType.Create;
-  Result.Data.dan1 := CastkaType.Create;
-  Result.Data.dan2 := CastkaType.Create;
-  Result.Data.dan3 := CastkaType.Create;
-  Result.Data.pouzit_zboz1 := CastkaType.Create;
-  Result.Data.pouzit_zboz2 := CastkaType.Create;
-  Result.Data.pouzit_zboz3 := CastkaType.Create;
-  Result.Data.urceno_cerp_zuct := CastkaType.Create;
-  Result.Data.zakl_dan1 := CastkaType.Create;
-  Result.Data.zakl_dan2 := CastkaType.Create;
-  Result.Data.zakl_dan3 := CastkaType.Create;
-  Result.Data.zakl_nepodl_dph := CastkaType.Create;
+//  Result.Data.celk_trzba := CastkaType.Create;
+//  Result.Data.cerp_zuct := CastkaType.Create;
+//  Result.Data.cest_sluz := CastkaType.Create;
+//  Result.Data.dan1 := CastkaType.Create;
+//  Result.Data.dan2 := CastkaType.Create;
+//  Result.Data.dan3 := CastkaType.Create;
+//  Result.Data.pouzit_zboz1 := CastkaType.Create;
+//  Result.Data.pouzit_zboz2 := CastkaType.Create;
+//  Result.Data.pouzit_zboz3 := CastkaType.Create;
+//  Result.Data.urceno_cerp_zuct := CastkaType.Create;
+//  Result.Data.zakl_dan1 := CastkaType.Create;
+//  Result.Data.zakl_dan2 := CastkaType.Create;
+//  Result.Data.zakl_dan3 := CastkaType.Create;
+//  Result.Data.zakl_nepodl_dph := CastkaType.Create;
 
   // KontrolniKody prepare
   Result.KontrolniKody := TrzbaKontrolniKodyType.Create;
@@ -468,7 +534,13 @@ begin
   Result := nil;
 
   Service := GetEET(False, URL, GetEETRIO);
-  if not SendOnly then SignTrzba(parameters);
+
+  // milisecond in output correction
+  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+
+  if not SendOnly then
+    SignTrzba(parameters);
 
   try
     if aTimeOut <> 0 then
@@ -476,7 +548,7 @@ begin
           TT := TEETTrzbaThread.Create(True);
           TT.FreeOnTerminate := True;
           TT.EET := Service;
-          TT.ETrzba := parameters;
+          TT.EETTrzba := parameters;
           h := TT.Handle;
           {$IFDEF LEGACY_RIO}
           TT.Resume;
@@ -491,9 +563,9 @@ begin
             WAIT_OBJECT_0:
                begin
                  // Thread dobìhl vèas, výsledky jsou validní, zpracovat je
+                 FErrorCode := TT.ErrCode;
+                 FErrorMessage := TT.ErrMessage;
                  Result := TT.EETOdpoved;
-                 FErrorCode := TT.ErrorCode;
-                 FErrorMessage := TT.ErrorMessage;
                end;
           else
             begin
@@ -517,11 +589,11 @@ begin
     else
       Result := Service.OdeslaniTrzby(parameters); { invoke the service }
   except
-   on E:Exception do
-     begin
-       FErrorCode := -1;
-       FErrorMessage := E.Message;
-     end;
+    on E:Exception do
+      begin
+        FErrorCode := -3;
+        FErrorMessage := E.Message;
+      end;
   end;
 end;
 
@@ -750,73 +822,13 @@ end;
 function TEETTrzba.SignTrzba(const parameters: Trzba): Boolean;
 var
   sPKPData : string;
-
-  // http://qc.embarcadero.com/wc/qcmain.aspx?d=43488
-  // matches the relative standard or daylight date to a real date in a given year
-  function EncodeDayLightChange (Change : TSystemTime; const Year : Word) : TDateTime;
-  begin
-    // wDay indicates the nth occurance of the day specified in wDayOfWeek in the given month
-    // wDayOfWeek indicates the day (0=sunday,  1=monday, ...,6=saturday)
-    // delphi coding is             (7=sunday,  1=monday, ...,6=saturday)
-    with change do begin
-      if wDayOfWeek = 0 then wDayOfWeek := 7;
-      // Encoding the day of change (if wDay = 5 then try it and if needed decrement to find the last
-      // occurance of the day in this month)
-      while not TryEncodeDayOfWeekInMonth (Year, wMonth, wDay, wDayOfWeek, result) do begin
-        dec (wday); // we assume there are only 4 occurances of the given day
-        if wDay < 1 then // this is just to make sure it realy terminates
-          TryEncodeDayOfWeekInMonth (Year, wMonth, 1, 7, result)
-      end;
-    // finally add the time when change is due
-    result := result + EncodeTime (wHour, wMinute, 0, 0);
-    end;
-  end;
-
-  function GetTimeZoneBias(const Date: TDateTime): Integer;
-  var
-    TimeZoneInfo  : TTimeZoneInformation;
-    DayLightBegin : tDateTime;
-    DayLightEnd   : tDateTime;
-    Y,M,D         : Word;
-
-  begin
-    case GetTimeZoneInformation(TimeZoneInfo) of
-      TIME_ZONE_ID_UNKNOWN: Result  := TimeZoneInfo.Bias;
-      TIME_ZONE_ID_STANDARD,
-      TIME_ZONE_ID_DAYLIGHT: begin
-                               Result := TimeZoneInfo.Bias;
-                               // is the time we want to convert in the daylight intervall ?
-                               DecodeDate(Date,Y,M,D);
-                               DayLightEnd   := EncodeDayLightChange (TimeZoneInfo.StandardDate, Y);
-                               DayLightBegin := EncodeDayLightChange (TimeZoneInfo.DaylightDate, Y);
-                               if (Date >= DayLightBegin) and (Date < DayLightEnd) then
-                                 Result := Result + TimeZoneInfo.DaylightBias;
-                              end;
-    else
-      Result := 0;
-    end;
-  end;
-
-  function DateTimeToXMLTime(Value: TDateTime): string;
-  const
-    Neg: array[Boolean] of string=  ('+', '-');
-  var
-    Bias: Integer;
-  begin
-    Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
-    Bias := GetTimeZoneBias(Value);
-    Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
-                                       Abs(Bias) div MinsPerHour,
-                                       Abs(Bias) mod MinsPerHour]);
-  end;
-
 begin
   Result := False;
   if not IsInitialized then exit;
 
   // milisecond in output correction
-  parameters.Hlavicka.dat_odesl.XSToNative(DateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-  parameters.Data.dat_trzby.XSToNative(DateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
 
   // KontrolniKody prepare
   if parameters.KontrolniKody = nil then  parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
@@ -978,15 +990,16 @@ end;
 procedure TEETTrzbaThread.Execute;
 begin
   try
-    FOdpoved := nil;
+    ErrCode := 0;
+    EETOdpoved := nil;
     CoInitialize(nil);
     try
-      FOdpoved := EET.OdeslaniTrzby(FTrzba);
+      EETOdpoved := EET.OdeslaniTrzby(EETTrzba);
     except
       on E : Exception do
         begin
-          FErrorCode := 2;
-          fErrorMessage := E.Message;
+          ErrCode := -3;
+          ErrMessage := E.Message;
         end;
     end;
     CoUninitialize;

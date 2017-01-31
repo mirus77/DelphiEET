@@ -10,6 +10,8 @@ interface
   {$LEGACYIFEND ON}
 {$IFEND}
 
+uses Classes;
+
 const
   LIBEET_SO : string = 'libeetsigner.dll';
 
@@ -585,6 +587,46 @@ begin
     end;
 end;
 
+function ASN1String_To_UTF8(aText : String) : string;
+var
+  buff: String;
+  I : Integer;
+  iLen : Integer;
+  Ch : AnsiChar;
+begin
+  Result := '';
+  iLen := Length(aText);
+  setLength(buff, 2);
+  I := 1;
+  while I <= iLen do
+    begin
+      if aText[I] = '\' then
+        begin
+          if (I + 3) < iLen then
+            begin
+              if aText[I+1] = 'x' then
+                begin
+                  Inc(I);
+                  Inc(I);
+                  buff[1] := aText[I];
+                  Inc(I);
+                  buff[2] := aText[I];
+                  Ch := #0;
+                  HexToBin(PChar(LowerCase(buff)), @ch, 1);
+                  Result := Result + string(ch);
+                end
+              else
+                Result := Result + aText[I];
+            end
+          else
+            Result := Result + aText[I];
+        end
+      else
+        Result := Result + aText[I];
+      Inc(I);
+    end;
+end;
+
 var
   peetSignerGetX509KeyCert  : eetSignerGetX509KeyCertFunc;
 function eetSignerGetX509KeyCert(mngr : xmlSecKeysMngrPtr): libeetX509Ptr;
@@ -607,6 +649,11 @@ begin
       begin
         Result := string(buf^);
         eetFree(buf^);
+      {$IFDEF UNICODE}
+        Result := UTF8ToWideString(AnsiString(ASN1String_To_UTF8(Result)));
+      {$ELSE}
+        Result := UTF8Decode(AnsiString(ASN1String_To_UTF8(Result)));
+      {$ENDIF}
       end;
   finally
     Dispose(buf);
@@ -667,6 +714,11 @@ begin
       begin
         Result := string(buf^);
         eetFree(buf^);
+      {$IFDEF UNICODE}
+        Result := UTF8ToWideString(AnsiString(ASN1String_To_UTF8(Result)));
+      {$ELSE}
+        Result := UTF8Decode(AnsiString(ASN1String_To_UTF8(Result)));
+      {$ENDIF}
       end;
   finally
     Dispose(buf);

@@ -98,7 +98,7 @@ uses
   vcruntime ,
   {$ENDIF}
   {$ENDIF}
-  u_EETSignerExceptions ;
+  u_EETSignerExceptions;
 
 {$IFNDEF USE_LIBEET}
 const
@@ -432,6 +432,7 @@ var
   a_time : TDateTime;
   a_serialnumber : string;
   a_subject : string;
+  a_issuername : string;
 {$ELSE}
   x509cert : libeetX509Ptr;
   a_time, b_time : TDateTime;
@@ -458,7 +459,7 @@ begin
          if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
            begin
              x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
-             if xmlSecOpenSSLX509CertGetSubject(X509_get_subject_name(x509cert), a_subject) = 0 then
+             if xmlSecOpenSSLX509CertGetX509Name(X509_get_subject_name(x509cert), a_subject) = 0 then
                FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
              if Length(FPrivKeyInfo.Subject) > 2 then
                if Copy(FPrivKeyInfo.Subject,1,2) = 'CZ'  then
@@ -469,6 +470,8 @@ begin
                      FPrivKeyInfo.notValidAfter := a_time;
                    if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
                      FPrivKeyInfo.SerialNumber :=a_serialnumber;
+                   if xmlSecOpenSSLX509CertGetX509Name(X509_get_issuer_name(x509cert), a_issuername) = 0 then
+                     FPrivKeyInfo.IssuerName := a_issuername;
                    Break;
                  end;
            end;

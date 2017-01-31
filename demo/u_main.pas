@@ -169,9 +169,10 @@ var
   I: Integer;
   ms : TMemoryStream;
 
-  function DoubleToCastka(Value : Double) : String;
+  function DoubleToCastkaType(Value : Double) : CastkaType;
   begin
-    Result := FormatFloat('0.00', Value, LocFS);
+    Result := CastkaType.Create;
+    Result.DecimalString := FormatFloat('0.00', Value, LocFS);
   end;
 
 begin
@@ -210,20 +211,20 @@ begin
     eTrzba.Data.id_pokl := '/5546/RO24';
     eTrzba.Data.porad_cis := '0/6460/ZQ42';
     eTrzba.Data.dat_trzby.AsDateTime := now;
-    eTrzba.Data.celk_trzba.DecimalString := DoubleToCastka(34113);
-    eTrzba.Data.cerp_zuct.DecimalString := DoubleToCastka(679.00);
-    eTrzba.Data.cest_sluz.DecimalString := DoubleToCastka(5460.00);
-    eTrzba.Data.dan1.DecimalString := DoubleToCastka(-172.39);
-    eTrzba.Data.dan2.DecimalString := DoubleToCastka(-530.73);
-    eTrzba.Data.dan3.DecimalString := DoubleToCastka(975.65);
-    eTrzba.Data.pouzit_zboz1.DecimalString := DoubleToCastka(784.00);
-    eTrzba.Data.pouzit_zboz2.DecimalString := DoubleToCastka(967.00);
-    eTrzba.Data.pouzit_zboz3.DecimalString := DoubleToCastka(189.00);
-    eTrzba.Data.urceno_cerp_zuct.DecimalString := DoubleToCastka(324.00);
-    eTrzba.Data.zakl_dan1.DecimalString := DoubleToCastka(-820.92);
-    eTrzba.Data.zakl_dan2.DecimalString := DoubleToCastka(-3538.20);
-    eTrzba.Data.zakl_dan3.DecimalString := DoubleToCastka(9756.46);
-    eTrzba.Data.zakl_nepodl_dph.DecimalString := DoubleToCastka(3036.00);
+    eTrzba.Data.celk_trzba := DoubleToCastkaType(34113);
+    eTrzba.Data.cerp_zuct := DoubleToCastkaType(679.00);
+    eTrzba.Data.cest_sluz := DoubleToCastkaType(5460.00);
+    eTrzba.Data.dan1 := DoubleToCastkaType(-172.39);
+    eTrzba.Data.dan2 := DoubleToCastkaType(-530.73);
+    eTrzba.Data.dan3 := DoubleToCastkaType(975.65);
+    eTrzba.Data.pouzit_zboz1 := DoubleToCastkaType(784.00);
+    eTrzba.Data.pouzit_zboz2 := DoubleToCastkaType(967.00);
+    eTrzba.Data.pouzit_zboz3 := DoubleToCastkaType(189.00);
+    eTrzba.Data.urceno_cerp_zuct := DoubleToCastkaType(324.00);
+    eTrzba.Data.zakl_dan1 := DoubleToCastkaType(-820.92);
+    eTrzba.Data.zakl_dan2 := DoubleToCastkaType(-3538.20);
+    eTrzba.Data.zakl_dan3 := DoubleToCastkaType(9756.46);
+    eTrzba.Data.zakl_nepodl_dph := DoubleToCastkaType(3036.00);
 
 //    EET.SignTrzba(eTrzba); // normalizace datumu a vygenervani PKP,BKP
 
