@@ -468,7 +468,6 @@ function TEETTrzba.NewTrzba: Trzba;
   var I : Integer;
   begin
     Result := '';
-    Randomize;
     for I := 1 to 8 do Result := Result + Hexa(Round(Int(Random(16))));
     Result := Result + '-';
     for I := 1 to 4 do Result := Result + Hexa(Round(Int(Random(16))));
@@ -546,45 +545,49 @@ begin
     if aTimeOut <> 0 then
       begin
           TT := TEETTrzbaThread.Create(True);
-          TT.FreeOnTerminate := True;
-          TT.EET := Service;
-          TT.EETTrzba := parameters;
-          h := TT.Handle;
-          {$IFDEF LEGACY_RIO}
-          TT.Resume;
-          {$ELSE}
-          TT.Start;
-          {$ENDIF}
-          if aTimeOut < 0 then
-            WaitResult := WaitForSingleObject(h, Windows.INFINITE)
-          else
-            WaitResult := WaitForSingleObject(h, aTimeOut);
-          case WaitResult of
-            WAIT_OBJECT_0:
-               begin
-                 // Thread dobìhl vèas, výsledky jsou validní, zpracovat je
-                 FErrorCode := TT.ErrCode;
-                 FErrorMessage := TT.ErrMessage;
-                 Result := TT.EETOdpoved;
-               end;
-          else
-            begin
-              // Thread ještì nedobìhl
-              if GetHandleInformation(h, Tmp) then
-                TT.Terminate; // signalizujeme, že s ním konèíme, ale je ttt stale validni?
-              if WaitResult = WAIT_TIMEOUT then
-                begin
-                  FErrorCode := -2;
-                  FErrorMessage := 'Send timeout expired !!!';
-                end
-              else
-                begin
-                  // volání ve vláknì selhalo, ošetøit..
-                  FErrorCode := -2;
-                  FErrorMessage := 'Send timeout expired !!!';
-                end;
-            end;
-           end; // Case
+          try
+            TT.FreeOnTerminate := False;
+            TT.EET := Service;
+            TT.EETTrzba := parameters;
+            h := TT.Handle;
+            {$IFDEF LEGACY_RIO}
+            TT.Resume;
+            {$ELSE}
+            TT.Start;
+            {$ENDIF}
+            if aTimeOut < 0 then
+              WaitResult := WaitForSingleObject(h, Windows.INFINITE)
+            else
+              WaitResult := WaitForSingleObject(h, aTimeOut);
+            case WaitResult of
+              WAIT_OBJECT_0:
+                 begin
+                   // Thread dobìhl vèas, výsledky jsou validní, zpracovat je
+                   FErrorCode := TT.ErrCode;
+                   FErrorMessage := TT.ErrMessage;
+                   Result := TT.EETOdpoved;
+                 end;
+            else
+              begin
+                // Thread ještì nedobìhl
+                if GetHandleInformation(h, Tmp) then
+                  TT.Terminate; // signalizujeme, že s ním konèíme, ale je ttt stale validni?
+                if WaitResult = WAIT_TIMEOUT then
+                  begin
+                    FErrorCode := -2;
+                    FErrorMessage := 'Send timeout expired !!!';
+                  end
+                else
+                  begin
+                    // volání ve vláknì selhalo, ošetøit..
+                    FErrorCode := -2;
+                    FErrorMessage := 'Send timeout expired !!!';
+                  end;
+              end;
+            end; // Case
+          finally
+            TT.Free;
+          end;
       end
     else
       Result := Service.OdeslaniTrzby(parameters); { invoke the service }
@@ -1006,5 +1009,8 @@ begin
   except
   end;
 end;
+
+initialization
+    Randomize;
 
 end.

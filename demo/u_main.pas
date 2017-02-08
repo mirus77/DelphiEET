@@ -251,7 +251,7 @@ begin
   {$ELSE}
      {$MESSAGE HINT 'USE WinInet default SOAP WebRequest'}
   {$IFEND}
-    Odp := EET.OdeslaniTrzby(eTrzba, false, 5000);
+    Odp := EET.OdeslaniTrzby(eTrzba, false, 0);
 {$IFEND}
 
     ms.Clear;

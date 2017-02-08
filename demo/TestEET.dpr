@@ -26,7 +26,8 @@ program TestEET;
 
 uses
   Forms,
-  u_main in 'u_main.pas' {TestEETForm};
+  u_main in 'u_main.pas' {TestEETForm},
+  u_EETXMLSchema in '..\include\databinding\u_EETXMLSchema.pas';
 
 {$R *.res}
 
