@@ -319,9 +319,10 @@ begin
   if (xmlSecCryptoInit() < 0)
   then raise EEETSignerException.Create(sSignerXmlSecInitError);
 {$ELSE}
-  InitLibEETSigner('');
+  if not InitLibEETSigner('')
+  then raise EEETSignerException.Create(sSignerLibEETInitLibError);
   if (eetSignerInit < 0)
-  then raise EEETSignerException.Create(sSignerXmlSecInitError);
+  then raise EEETSignerException.Create(sSignerLibEETSignerInitError);
 {$ENDIF}
 end;
 

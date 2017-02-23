@@ -848,6 +848,7 @@ begin
 
     if (FlibeetHandle <> 0) and (ReferenceCount = 0) then
     begin
+      FreeLibrary(FlibeetHandle);
       FlibeetHandle := 0;
 
       {$IFDEF USE_LIBEET}
