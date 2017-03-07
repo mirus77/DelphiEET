@@ -27,9 +27,10 @@ type
 
   libeetX509Ptr = ^Pointer;
 
-{$IFDEF USE_LIBEET}
   xmlSecKeysMngr = Pointer;
   xmlSecKeysMngrPtr = ^xmlSecKeysMngr;
+
+{$IFDEF USE_LIBEET}
 
   eetSignerKeysMngrCreateFunc = function() : xmlSecKeysMngrPtr; cdecl;
   eetSignerKeysMngrCreateFuncPtr = ^eetSignerKeysMngrCreateFunc;
@@ -170,9 +171,11 @@ type
   function libeetErrorsGetCode(pos: xmlSecSize) : Longint; cdecl;
   function libeetErrorsGetMsg(pos: xmlSecSize) : string; cdecl;
 
+{$IFDEF USE_LIBEET}
   function eetSignerKeysMngrCreate : xmlSecKeysMngrPtr; cdecl;
   procedure eetSignerKeysMngrDestroy(mngr : xmlSecKeysMngrPtr); cdecl;
   procedure eetSignerSetDefaultKeysMngr(mngr : xmlSecKeysMngrPtr); cdecl;
+{$ENDIF}
 
   procedure eetFree(mem: Pointer); cdecl;
   function eetMalloc(size: size_t): Pointer; cdecl;
