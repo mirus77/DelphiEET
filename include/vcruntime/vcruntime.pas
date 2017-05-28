@@ -4,9 +4,17 @@ interface
 
 const
 {$IFDEF USE_LIBEET}
+  {$IFDEF USE_UCRT_LIBS}
+  LIBMSVCRT   = 'ucrtbase.dll';
+  {$ELSE}
   LIBMSVCRT   = 'msvcr120.dll'; // Visual Studio 2013
+  {$ENDIF}
 {$ELSE}
+  {$IFDEF USE_UCRT_LIBS}
+  LIBMSVCRT   = 'ucrtbase.dll';
+  {$ELSE}
   LIBMSVCRT   = 'msvcrt.dll';
+  {$ENDIF}
 {$ENDIF}
 
 type
@@ -36,6 +44,8 @@ begin
     Inc(ReferenceCount);
     if FMscvrtHandle = 0 then
       begin
+        crt_fopen :=  nil;
+        crt_fclose :=  nil;
         FMscvrtHandle := LoadLibrary(LIBMSVCRT);
         if FMscvrtHandle > 0 then
           begin
