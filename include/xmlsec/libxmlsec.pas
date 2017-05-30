@@ -10,14 +10,22 @@ interface
 uses libxml2, libxslt;
 
 const
-{$IFDEF WIN32}
-  LIBXMLSEC_SO = {$IFNDEF USE_UCRT_LIBS}'libxmlsec1.dll'{$ELSE}'libxmlsec.dll'{$ENDIF};
+{$IFDEF MSWINDOWS}
+  LIBXMLSEC_SO = {$IFDEF USE_UCRT_LIBS}'libxmlsec.dll'{$ELSE}'libxmlsec1.dll'{$ENDIF};
 {$ELSE}
   LIBXMLSEC_SO = 'libxmlsec.so';
 {$ENDIF}
 
+{$IFNDEF USE_UCRT_LIBS}
+  {$DEFINE _USE_32BIT_TIME_T}
+{$ENDIF}
+
 type
+{$IFDEF _USE_32BIT_TIME_T}
       time_t = LongInt;
+{$ELSE}
+      time_t = Int64;
+{$ENDIF}
       xmlSecSize = Cardinal;
       xmlSecSizePtr = ^xmlSecSize;
       xmlSecByte = Byte;

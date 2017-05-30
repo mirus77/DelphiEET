@@ -10,7 +10,7 @@ interface
 
 
 const
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   LIBXML2_SO = {$IFNDEF USE_UCRT_LIBS}'libxml2-2.dll'{$ELSE}'libxml2.dll'{$ENDIF};
 {$ELSE}
   LIBXML2_SO = 'libxml2.so';
