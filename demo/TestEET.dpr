@@ -14,10 +14,13 @@ program TestEET;
        USE_INDY - recompile SOAP comunications with Indy
        USE_LIBEET - use wrapper libeetsigner.dll - static compiled into one library (libxml2, xmlsec, openssl)
                     compiled with Visual Studio 2013 U5 Express - VC12 (VS Runtime 2013) needed MSVCR120.dll
-       USE_UCRT_LIBS - use libxml2 and xmlsec compiled with Visual Studio
+       USE_VS_LIBS - use libxml2 and xmlsec compiled with Visual Studio
                   solution for time_t compatibility
                   VS 2013 and lower using MSVCRxxx.dll
                   VS 2015 and higher VCRUNTIME140.dll (ucrtbase.dll)
+       Default c-rutntime msvcrt.dll for MinGW xmlsec1.
+
+  For x64 binaries of demo use directive USE_LIBEET
 
   (for other)
   Delphi Compiler Options -> Output Directory: ..\bin

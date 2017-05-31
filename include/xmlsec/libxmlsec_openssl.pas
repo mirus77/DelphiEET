@@ -8,8 +8,8 @@ interface
 uses SysUtils, Classes, {TimeSpan,}  libxml2, libxmlsec, libeay32;
 
 const
-{$IFDEF WIN32}
-  LIBXMLSECOPENSSL_SO = {$IFNDEF USE_UCRT_LIBS}'libxmlsec1-openssl.dll'{$ELSE}'libxmlsec-openssl.dll'{$ENDIF};
+{$IFDEF MSWINDOWS}
+  LIBXMLSECOPENSSL_SO = {$IFNDEF USE_VS_LIBS}'libxmlsec1-openssl.dll'{$ELSE}'libxmlsec-openssl.dll'{$ENDIF};
 {$ELSE}
   LIBXMLSECOPENSSL_SO = 'libxmlsec-openssl.so';
 {$ENDIF}

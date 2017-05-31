@@ -10,7 +10,7 @@ interface
 uses libxml2;
 
 const
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   LIBXSLT_SO = 'libxslt.dll';
 {$ELSE}
   LIBXSLT_SO = 'libxslt.so';
@@ -1093,7 +1093,7 @@ const
   xsltConstXSLTAttrMarker = 'LRE XLST Attr';
 implementation
 uses
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
   SysUtils;

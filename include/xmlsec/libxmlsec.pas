@@ -11,12 +11,13 @@ uses libxml2, libxslt;
 
 const
 {$IFDEF MSWINDOWS}
-  LIBXMLSEC_SO = {$IFDEF USE_UCRT_LIBS}'libxmlsec.dll'{$ELSE}'libxmlsec1.dll'{$ENDIF};
+  LIBXMLSEC_SO = {$IFDEF USE_VS_LIBS}'libxmlsec.dll'{$ELSE}'libxmlsec1.dll'{$ENDIF};
 {$ELSE}
   LIBXMLSEC_SO = 'libxmlsec.so';
 {$ENDIF}
 
-{$IFNDEF USE_UCRT_LIBS}
+{$IFNDEF USE_VS_LIBS}
+  // for MinGW runtime
   {$DEFINE _USE_32BIT_TIME_T}
 {$ENDIF}
 
@@ -1680,7 +1681,7 @@ type
 
 implementation
 uses
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
   SysUtils;

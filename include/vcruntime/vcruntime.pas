@@ -4,16 +4,14 @@ interface
 
 const
 {$IFDEF USE_LIBEET}
-  {$IFDEF USE_UCRT_LIBS}
-  LIBMSVCRT   = 'ucrtbase.dll';
-  {$ELSE}
+//  LIBMSVCRT   = 'ucrtbase.dll';  // Visual Studio 2015 and higher
   LIBMSVCRT   = 'msvcr120.dll'; // Visual Studio 2013
-  {$ENDIF}
 {$ELSE}
-  {$IFDEF USE_UCRT_LIBS}
-  LIBMSVCRT   = 'ucrtbase.dll';
+  {$IFDEF USE_VS_LIBS}
+  LIBMSVCRT   = 'msvcr120.dll'; // Visual Studio 2013
+//  LIBMSVCRT   = 'ucrtbase.dll';   // Visual Studio 2015 and higher
   {$ELSE}
-  LIBMSVCRT   = 'msvcrt.dll';
+  LIBMSVCRT   = 'msvcrt.dll'; // MinGW32 libs
   {$ENDIF}
 {$ENDIF}
 
@@ -21,7 +19,7 @@ type
   PFILE = Pointer;
 
 var
-// msvcrt.dll utils
+// crtuntime utils
 
   crt_fopen : function (const filename, mode: PAnsiChar): PFILE; cdecl;
 
