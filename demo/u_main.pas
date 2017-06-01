@@ -186,7 +186,7 @@ begin
     EET.OnAfterSendRequest := AfterSendExecute;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     EET.OnVerifyPeer := VerifyPeer;
-    EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.pem');
+    EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.cer');
 {$IFEND}
     EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
     EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
