@@ -835,8 +835,8 @@ begin
       xmlDocDumpMemory(Doc, @Buf, @BufSz);
       XMLStream.SetSize(BufSz);
       XMLStream.Position := 0;
-      XMLStream.WriteBuffer(Buf^, BufSz);
-      xmlBufferFree(Pointer(Buf));
+      if BufSz>0 then XMLStream.WriteBuffer(Buf^, BufSz);
+      xmlFree(Buf);
     end;
   finally
 //    if Node = nil
