@@ -27,7 +27,12 @@ type
 {$ELSE}
       time_t = Int64;
 {$ENDIF}
+{$IFDEF WIN32}
       xmlSecSize = Cardinal;
+{$ENDIF}
+{$IFDEF WIN64}
+      xmlSecSize = UInt64;
+{$ENDIF}
       xmlSecSizePtr = ^xmlSecSize;
       xmlSecByte = Byte;
       xmlSecBytePtr = ^xmlSecByte;
