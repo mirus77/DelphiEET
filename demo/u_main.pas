@@ -199,7 +199,7 @@ begin
 //    EET.ProxyHost := 'proxy';
     EET.Initialize;
 
-    lblKeySubject.Caption := 'Pøedmìt :' + EET.Signer.PrivKeyInfo.Subject;
+    lblKeySubject.Caption := 'Pøedmìt :' + EET.Signer.PrivKeyInfo.CommonName;
     lblKeyValidFrom.Caption := 'Platnost klíèe od :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
     lblKeyValidTo.Caption := 'Platnost klíèe do :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
 
@@ -271,7 +271,7 @@ begin
       begin
         if Odp.Potvrzeni <> nil then
           begin
-            if EET.ValidResponse then
+            if EET.ValidResponse and EET.ValidResponseCert then
               begin
                 Lst := TStringList.Create;
                 try
@@ -292,7 +292,12 @@ begin
                 end;
               end
             else
-              MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
+              begin
+                if EET.ValidResponse and (EET.ValidResponseCert = False) then
+                   MessageDlg('Neplatný pùvod odpovìdi !!!', mtError, [mbOK], 0)
+                else
+                   MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
+              end
           end
         else
           begin

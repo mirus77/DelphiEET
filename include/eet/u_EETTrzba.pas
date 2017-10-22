@@ -71,6 +71,8 @@ type
     FUseProxy: boolean;
     FRequestStream: TMemoryStream;
     FResponseStream: TMemoryStream;
+    FResponseTrustCertOrganization: string;
+    FValidResponseCert: Boolean;
   protected
     IsInitialized: boolean;
     FSigner : TEETSigner;
@@ -118,6 +120,7 @@ type
     property ProxyUsername : string read FProxyUsername write FProxyUsername;
     property ProxyPassword : string read FProxyPassword write FProxyPassword;
     property ValidResponse : Boolean read FValidResponse;
+    property ValidResponseCert : Boolean read FValidResponseCert;
     property ErrorCode : Integer read FErrorCode;
     property ErrorMessage : string read FErrorMessage;
     property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
@@ -125,6 +128,7 @@ type
     property Signer : TEETSigner read FSigner;
     property RequestStream : TMemoryStream read FRequestStream;
     property ResponseStream : TMemoryStream read FResponseStream;
+    property ResponseTrustCertOrganization : string read FResponseTrustCertOrganization write FResponseTrustCertOrganization;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
 {$IFEND}
@@ -203,6 +207,7 @@ begin
   FPFXStream := TMemoryStream.Create;
   FCERTrustedList := TCERTrustedList.Create;
   FHttpsTrustName := 'www.eet.cz';
+  FResponseTrustCertOrganization := 'Èeská republika - Generální finanèní øeditelství';
   FConnectTimeout := 2000;
   FSendTimeout := 3000;
   FReceiveTimeout := 3000;
@@ -528,6 +533,7 @@ var
   Tmp : Cardinal;
 begin
   FValidResponse := True;
+  FValidResponseCert := True;
   FErrorCode := 0;
   FErrorMessage := '';
   Result := nil;
@@ -636,6 +642,7 @@ var
       end;
   end;
 begin
+  FValidResponse := True;
   FValidResponse := True;
   FErrorCode := 0;
   FErrorMessage := '';
@@ -861,11 +868,16 @@ end;
 procedure TEETTrzba.ValidateResponse(SOAPResponse: TStream);
 begin
   FValidResponse := False;
+  FValidResponseCert := False;
 
-//  if FSigner.VerifyCertIncluded then
-//    begin
-      FValidResponse := FSigner.VerifyXML(SOAPResponse as TMemoryStream, 'Body', 'Id');
-//    end;
+  FValidResponse := FSigner.VerifyXML(SOAPResponse as TMemoryStream, 'Body', 'Id');
+
+  if FValidResponse then
+    begin
+      FValidResponseCert := True;
+      if(FResponseTrustCertOrganization <> '') then
+        FValidResponseCert := FSigner.ResponseCertInfo.Organisation = FResponseTrustCertOrganization;
+    end;
 end;
 
 { TEETRIO }

@@ -129,6 +129,9 @@ type
   eetSignerGetX509KeyCertFunc = function(mngr : xmlSecKeysMngrPtr) : libeetX509Ptr; cdecl;
   eetSignerGetX509KeyCertFuncPtr = ^eetSignerGetX509KeyCertFunc;
 
+  eetSignerGetX509ResponseCertFunc = function(mngr : xmlSecKeysMngrPtr) : libeetX509Ptr; cdecl;
+  eetSignerGetX509ResponseCertFuncPtr = ^eetSignerGetX509ResponseCertFunc;
+
   eetSignerX509GetSubjectFunc = function(pX509Cert : libeetX509Ptr; Subject : xmlCharPtrPtr) : LongInt; cdecl;
   eetSignerX509GetSubjectFuncPtr = ^eetSignerX509GetSubjectFunc;
 
@@ -159,6 +162,7 @@ type
 
 {$IFDEF USE_LIBEET}
   function eetSignerGetX509KeyCert(mngr : xmlSecKeysMngrPtr) : libeetX509Ptr; cdecl;
+  function eetSignerGetX509ResponseCert(mngr : xmlSecKeysMngrPtr) : libeetX509Ptr; cdecl;
   function eetSignerX509GetSubject(pX509Cert : libeetX509Ptr) : string; cdecl;
   function eetSignerX509GetSerialNum(pX509Cert : libeetX509Ptr) : string; cdecl;
   function eetSignerX509GetValidDate(pX509Cert : libeetX509Ptr; var notBefore, notAfter : TDateTime) : LongInt; cdecl;
@@ -639,6 +643,14 @@ begin
 end;
 
 var
+  peetSignerGetX509ResponseCert  : eetSignerGetX509ResponseCertFunc;
+function eetSignerGetX509ResponseCert(mngr : xmlSecKeysMngrPtr): libeetX509Ptr;
+begin
+  CheckForNil(@peetSignerGetX509ResponseCert, 'eetSignerGetX509ResponseCert');
+  Result := peetSignerGetX509ResponseCert(mngr);
+end;
+
+var
   peetSignerX509GetSubject  : eetSignerX509GetSubjectFunc;
 function eetSignerX509GetSubject(pX509Cert : libeetX509Ptr): string;
 var
@@ -823,6 +835,7 @@ begin
             peetSignerGetRawCertDataAsBase64String := _GetProcAddress(FlibeetHandle, 'eetSignerGetRawCertDataAsBase64String');
 
             peetSignerGetX509KeyCert     := _GetProcAddress(FlibeetHandle, 'eetSignerGetX509KeyCert');
+            peetSignerGetX509ResponseCert := _GetProcAddress(FlibeetHandle, 'eetSignerGetX509ResponseCert');
             peetSignerX509GetSubject     := _GetProcAddress(FlibeetHandle, 'eetSignerX509GetSubject');
             peetSignerX509GetSerialNum   := _GetProcAddress(FlibeetHandle, 'eetSignerX509GetSerialNum');
             peetSignerX509GetValidDate   := _GetProcAddress(FlibeetHandle, 'eetSignerX509GetValidDate');
@@ -886,6 +899,7 @@ begin
       peetSignerGetRawCertDataAsBase64String := nil;
 
       peetSignerGetX509KeyCert := nil;
+      peetSignerGetX509ResponseCert := nil;
       peetSignerX509GetSubject := nil;
       peetSignerX509GetSerialNum := nil;
       peetSignerX509GetValidDate := nil;

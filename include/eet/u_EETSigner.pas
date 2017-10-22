@@ -14,9 +14,12 @@ const
   FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
 
 Type
-  TEETSignerKeyInfo = record
+  TEETSignerCertInfo = record
     Name : string;
     Subject : string;
+    CommonName : string;
+    Organisation : string;
+    Country : string;
     IssuerName : string;
     SerialNumber : string;
     notValidBefore : TDateTime;
@@ -33,15 +36,20 @@ Type
     FCERTrustedList : TCERTrustedList;   // stream list s overovacimi certifikaty (CER)
     FMngr: xmlSecKeysMngrPtr;
     FVerifyCertIncluded: Boolean;
-    FPrivKeyInfo: TEETSignerKeyInfo;
+    FPrivKeyInfo: TEETSignerCertInfo;
+    FResponseCertInfo: TEETSignerCertInfo;
     procedure InitXMLSec;
     procedure ShutDownXMLSec;
     procedure SetActive(const Value: Boolean);
     procedure CheckActive;
     procedure CheckInactive;
-    procedure ClearPrivKeyInfo;
-    procedure ReadPrivKeyInfo;
+    procedure ClearCertInfo(CertInfo : TEETSignerCertInfo);
+    procedure ReadPrivKeyCertInfo;
+    procedure ReadResponseCertInfo;
     function ExtractSubjectItem(aSubject, ItemName : string): string;
+    {$IFNDEF USE_LIBEET}
+    procedure AddBSTCert(aValue : AnsiString);
+    {$ENDIF}
   public
     {:Nacita klice}
     property Active: Boolean read FActive write SetActive;
@@ -76,7 +84,8 @@ Type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
   published
-    property PrivKeyInfo : TEETSignerKeyInfo read FPrivKeyInfo;
+    property PrivKeyInfo : TEETSignerCertInfo read FPrivKeyInfo;
+    property ResponseCertInfo : TEETSignerCertInfo read FResponseCertInfo;
 end;
 
   TCERTrustedList = class(TList)
@@ -93,7 +102,7 @@ implementation
 uses
   StrUtils, DateUtils,
   {$IFNDEF USE_LIBEET}
-  SZCodeBaseX, synacode, libxmlsec_openssl, libeay32,
+  synacode, libxmlsec_openssl, libeay32,
   {$IFDEF DEBUG}
   vcruntime ,
   {$ENDIF}
@@ -102,7 +111,8 @@ uses
 
 {$IFNDEF USE_LIBEET}
 const
-  PFXCERT_KEYNAME:PAnsiChar   = 'p';
+  PFXCERT_KEYNAME : PAnsiChar   = 'p';
+  RESPONSECERT_KEYNAME : PAnsiChar = 'responsecert';
 {$ENDIF}
 
 var
@@ -122,12 +132,15 @@ begin
   then raise EEETSignerException.Create(sSignerInactive);
 end;
 
-procedure TEETSigner.ClearPrivKeyInfo;
+procedure TEETSigner.ClearCertInfo(CertInfo : TEETSignerCertInfo);
 begin
-  FPrivKeyInfo.Name := '';
-  FPrivKeyInfo.Subject := '';
-  FPrivKeyInfo.notValidBefore := 0;
-  FPrivKeyInfo.notValidAfter := 0;
+  CertInfo.Name := '';
+  CertInfo.Subject := '';
+  CertInfo.CommonName := '';
+  CertInfo.Organisation := '';
+  CertInfo.Country := '';
+  CertInfo.notValidBefore := 0;
+  CertInfo.notValidAfter := 0;
 end;
 
 procedure TEETSigner.ClearVerifyCert;
@@ -145,7 +158,8 @@ begin
   FMngr := nil;
   FActive := False;
   FVerifyCertIncluded := False;
-  ClearPrivKeyInfo;
+  ClearCertInfo(FPrivKeyInfo);
+  ClearCertInfo(FResponseCertInfo);
 end;
 
 destructor TEETSigner.Destroy;
@@ -167,6 +181,7 @@ begin
   TempList:= TStringList.Create;
   try
     TempList.Delimiter := '/';
+    TempList.StrictDelimiter := True;
     TempList.DelimitedText := aSubject;
     if TempList.IndexOfName(ItemName) <> -1 then
       Result := Trim(TempList.Values[ItemName]);
@@ -366,6 +381,14 @@ var
         Inc(I);
       end;
   end;
+  function String2Hex(const Buffer: Ansistring): string;
+   var
+     n: Integer;
+   begin
+     Result := '';
+     for n := 1 to Length(Buffer) do
+       Result := LowerCase(Result + IntToHex(Ord(Buffer[n]), 2));
+   end;
 {$ENDIF}
 
 begin
@@ -376,7 +399,7 @@ begin
   if Length(buf) > 0 then
     begin
       // generovat BKP z puvodniho cisteho podpisu retezce
-      Result := FormatBKP(string(SZEncodeBase16(SHA1(buf))));
+      Result := FormatBKP(string(String2Hex(SHA1(buf))));
     end;
 {$ELSE}
   Result := eetSignerMakeBKP(FMngr, Data);
@@ -402,6 +425,92 @@ begin
 {$ENDIF}
 end;
 
+{$IFNDEF USE_LIBEET}
+procedure TEETSigner.AddBSTCert(aValue: AnsiString);
+var
+  certstring : AnsiString;
+  secKey, tmpkey, secKeyNew : xmlSecKeyPtr;
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  store : xmlSecKeyStorePtr;
+  list : xmlSecPtrListPtr;
+  size, Pos : xmlSecSize;
+  {$IFDEF DEBUG}
+  keysfilename : AnsiString;
+  {$ENDIF}
+
+  function xmlSecKeyStoreCheckSize(store : xmlSecKeyStorePtr; size : xmlSecSize): boolean;
+  begin
+    Result := (store^.id.objSize >= size);
+  end;
+
+  function xmlSecSimpleKeysStoreGetList(store : xmlSecKeyStorePtr) : xmlSecPtrListPtr;
+  begin
+    Result := nil;
+    if xmlSecKeyStoreCheckSize(store, sizeof(xmlSecKeyStore) + sizeof(xmlSecPtrList)) then
+      begin
+        Result := xmlSecPtrListPtr(Pointer(NativeInt(xmlSecBytePtr(store)) + sizeof(xmlSecKeyStore)));
+      end;
+  end;
+begin
+  CheckActive;
+  certstring := AnsiString('-----BEGIN CERTIFICATE----- ')+#10;
+  certstring := certstring + aValue + #10;
+  certstring := certstring + AnsiString('-----END CERTIFICATE-----')+#10;
+
+  keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+  if keyInfoCtx = nil
+  then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyInfoCtxCreate - BSTCert']);
+
+  secKey := xmlSecKeysMngrFindKey(FMngr, RESPONSECERT_KEYNAME, keyInfoCtx);
+
+  try
+    secKeyNew := xmlSecCryptoAppKeyLoadMemory(Pointer(certstring), xmlSecSize(Length(certstring)),
+        xmlSecKeyDataFormatCertPem, nil, nil, nil);
+
+    if secKeyNew = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecCryptoAppKeyLoadMemory - BSTCert']);
+
+    if xmlSecKeySetName(secKeyNew, RESPONSECERT_KEYNAME) <> 0
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeySetName - BSTCert']);
+
+    if secKey = nil then
+      begin
+        if (xmlSecCryptoAppDefaultKeysMngrAdoptKey(FMngr, secKeyNew) <> 0)
+        then raise EEETSignerException.CreateFmt(sSignerVerifyFail, ['xmlSecCryptoAppDefaultKeysMngrAdoptKey - BSTCert']);
+      end
+    else
+      begin
+        store := xmlSecKeysMngrGetKeysStore(FMngr);
+        list := xmlSecSimpleKeysStoreGetList(store);
+        size := xmlSecPtrListGetSize(list);
+        for pos := 0 to size - 1 do
+          begin
+           tmpkey := xmlSecKeyPtr(xmlSecPtrListGetItem(list, pos));
+           if((tmpkey <> nil) and (xmlSecKeyMatch(tmpkey, RESPONSECERT_KEYNAME, Pointer(Addr(keyInfoCtx.keyReq))) = 1))
+           then
+             begin
+               if xmlSecKeyCopy(tmpkey, secKeyNew) < 0
+               then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyCopy - BSTCert - replace']);
+               if xmlSecKeySetName(tmpKey, RESPONSECERT_KEYNAME)<> 0
+               then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeySetName - BSTCert - replace'])
+             end;
+          end;
+      end;
+  finally
+    if keyInfoCtx <> nil then
+       xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil then
+       xmlSecKeyDestroy(secKey);
+  end;
+
+  {$IFDEF DEBUG}
+  keysfilename:= 'keys-response.xml';
+  if xmlSecCryptoAppDefaultKeysMngrSave(FMngr,@keysfilename[1],$FFFF) < 0 then
+     raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
+  {$ENDIF}
+end;
+{$ENDIF}
+
 function TEETSigner.AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
 var
   Stream : TMemoryStream;
@@ -422,7 +531,7 @@ begin
   Result := FCERTrustedList.AddCert(Stream);
 end;
 
-procedure TEETSigner.ReadPrivKeyInfo;
+procedure TEETSigner.ReadPrivKeyCertInfo;
 var
 {$IFNDEF USE_LIBEET}
   keyInfoCtx: xmlSecKeyInfoCtxPtr;
@@ -461,10 +570,16 @@ begin
            begin
              x509cert := xmlSecOpenSSLKeyDataX509GetKeyCert(DataItem);
              if xmlSecOpenSSLX509CertGetX509Name(X509_get_subject_name(x509cert), a_subject) = 0 then
-               FPrivKeyInfo.Subject := ExtractSubjectItem(a_subject, 'CN');
+               begin
+                 FPrivKeyInfo.Subject := a_subject;
+                 FPrivKeyInfo.CommonName := ExtractSubjectItem(a_subject, 'CN');
+                 FPrivKeyInfo.Organisation := ExtractSubjectItem(a_subject, 'O');
+                 FPrivKeyInfo.Country := ExtractSubjectItem(a_subject, 'C');
+               end;
              if Length(FPrivKeyInfo.Subject) > 2 then
                if Copy(FPrivKeyInfo.Subject,1,2) = 'CZ'  then
                  begin
+                   FPrivKeyInfo.Name := 'p';
                    if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
                      FPrivKeyInfo.notValidBefore :=a_time;
                    if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
@@ -490,13 +605,102 @@ begin
   if x509cert <> nil then
     begin
       FPrivKeyInfo.Name := 'p';
-      FPrivKeyInfo.Subject := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'CN');
+      FPrivKeyInfo.Subject := eetSignerX509GetSubject(x509cert);
+      FPrivKeyInfo.CommonName := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'CN');
+      FPrivKeyInfo.Organisation := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'O');
+      FPrivKeyInfo.Country := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'C');
       FPrivKeyInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
       FPrivKeyInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
       if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then
         begin
           FPrivKeyInfo.notValidBefore := a_time;
           FPrivKeyInfo.notValidAfter := b_time;
+        end;
+      eetFree(x509cert);
+    end;
+{$ENDIF}
+end;
+
+procedure TEETSigner.ReadResponseCertInfo;
+var
+{$IFNDEF USE_LIBEET}
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  secKey: xmlSecKeyPtr;
+  ItemCount, I : Integer;
+  DataItem : xmlSecKeyDataPtr;
+  x509cert : pX509;
+  a_time : TDateTime;
+  a_serialnumber : string;
+  a_subject : string;
+  a_issuername : string;
+{$ELSE}
+  x509cert : libeetX509Ptr;
+  a_time, b_time : TDateTime;
+{$ENDIF}
+begin
+  CheckActive;
+{$IFNDEF USE_LIBEET}
+  keyInfoCtx := nil;
+  secKey := nil;
+  try
+    keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+    if keyInfoCtx = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyInfoCtxCreate']);
+
+    secKey :=  xmlSecKeysMngrFindKey(FMngr, RESPONSECERT_KEYNAME, keyInfoCtx);
+    if secKey = nil
+    then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeysMngrFindKey']);
+
+    // read PrivKeyInfo
+    ItemCount := xmlSecPtrListGetSize(secKey.dataList);
+    for I := 0 to ItemCount - 1 do
+      begin
+        DataItem := xmlSecPtrListGetItem(secKey.dataList, I);
+         if (xmlSecKeyDataIsValid(DataItem) and xmlSecKeyDataCheckId(DataItem, xmlSecOpenSSLKeyDataX509Id)) then
+           begin
+             x509cert := xmlSecOpenSSLKeyDataX509GetCert(DataItem, I);
+             if x509cert <> nil then
+               begin
+                 if xmlSecOpenSSLX509CertGetX509Name(X509_get_subject_name(x509cert), a_subject) = 0 then
+                   begin
+                     FResponseCertInfo.Subject := a_subject;
+                     FResponseCertInfo.CommonName := ExtractSubjectItem(a_subject, 'CN');
+                     FResponseCertInfo.Organisation := ExtractSubjectItem(a_subject, 'O');
+                     FResponseCertInfo.Country := ExtractSubjectItem(a_subject, 'C');
+                   end;
+                 if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
+                   FResponseCertInfo.notValidBefore := a_time;
+                 if xmlSecOpenSSLX509CertGetTime(X509_get_notAfter(x509cert), a_time) = 0 then
+                   FResponseCertInfo.notValidAfter := a_time;
+                 if xmlSecOpenSSLX509CertGetSerialNumber(X509_get_serialNumber(x509cert), a_serialnumber) = 0 then
+                   FResponseCertInfo.SerialNumber := a_serialnumber;
+                 if xmlSecOpenSSLX509CertGetX509Name(X509_get_issuer_name(x509cert), a_issuername) = 0 then
+                   FResponseCertInfo.IssuerName := a_issuername;
+               end;
+           end;
+      end;
+    FResponseCertInfo.Name := String(secKey.name);
+  finally
+    if keyInfoCtx <> nil
+    then xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil
+    then xmlSecKeyDestroy(secKey);
+  end;
+{$ELSE}
+  x509cert := eetSignerGetX509ResponseCert(FMngr);
+  if x509cert <> nil then
+    begin
+      FResponseCertInfo.Name := 'response';
+      FResponseCertInfo.Subject := eetSignerX509GetSubject(x509cert);
+      FResponseCertInfo.CommonName := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'CN');
+      FResponseCertInfo.Organisation := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'O');
+      FResponseCertInfo.Country := ExtractSubjectItem(eetSignerX509GetSubject(x509cert), 'C');
+      FResponseCertInfo.IssuerName := eetSignerX509GetIssuerName(x509cert);
+      FResponseCertInfo.SerialNumber := eetSignerX509GetSerialNum(x509cert);
+      if (eetSignerX509GetValidDate(x509cert, a_time, b_time) = 0) then
+        begin
+          FResponseCertInfo.notValidBefore := a_time;
+          FResponseCertInfo.notValidAfter := b_time;
         end;
       eetFree(x509cert);
     end;
@@ -545,7 +749,8 @@ begin
     FPFXStream.Clear;
     FCERTrustedList.Clear;
     FActive := False;
-    ClearPrivKeyInfo;
+    ClearCertInfo(FPrivKeyInfo);
+    ClearCertInfo(FResponseCertInfo);
     Exit;
   end;
 
@@ -562,7 +767,8 @@ begin
       {$BOOLEVAL OFF}
       if FPFXStream.Size > 0
       then begin
-        ClearPrivKeyInfo;
+        ClearCertInfo(FPrivKeyInfo);
+        ClearCertInfo(FResponseCertInfo);
 
         {$IFNDEF USE_LIBEET}
         FMngr := xmlSecKeysMngrCreate();
@@ -644,7 +850,7 @@ begin
       {$ENDIF}
       {$ENDIF}
 
-      ReadPrivKeyInfo;
+      ReadPrivKeyCertInfo;
     except
       FActive := False;
       FVerifyCertIncluded := False;
@@ -865,10 +1071,11 @@ var
   KeyInfoNode, x509Data, x509Certificate : xmlNodePtr;
   DsigCtx: xmlSecDSigCtxPtr;
   Attr: xmlAttrPtr;
-  IdVal: AnsiString;
+  IdVal: xmlCharPtr;
 {$ENDIF}
 begin
   CheckActive;
+  ClearCertInfo(FResponseCertInfo);
 {$IFNDEF USE_LIBEET}
   Doc := nil; DsigCtx := nil; {Attr := nil;}
   Result := False;
@@ -889,7 +1096,7 @@ begin
         if Attr <> nil
         then begin
           IdVal := xmlGetProp(Node, PAnsiChar(IdProp));
-          xmlAddID(nil, Doc, @(IdVal[1]), Attr);
+          xmlAddID(nil, Doc, IdVal, Attr);
         end;
       end;
     end;
@@ -909,8 +1116,10 @@ begin
             if Attr <> nil
             then begin
               IdVal := xmlGetProp(BSTNode, PAnsiChar(IdProp));
-              xmlAddID(nil, Doc, @(IdVal[1]), Attr);
+              xmlAddID(nil, Doc, IdVal, Attr);
             end;
+
+            AddBSTCert(xmlNodeGetContent(BSTNode));
 
             // simulate X509Certifica node from
             // hack KeyInfo for verify from BinarySecurityToken
@@ -955,6 +1164,7 @@ begin
 {$ELSE}
   Result := (eetSignerVerifyResponse(FMngr, XMLStream.Memory, XMLStream.Size) = 1);
 {$ENDIF}
+  if Result then ReadResponseCertInfo;
 end;
 
 { TCERTrustedList }
