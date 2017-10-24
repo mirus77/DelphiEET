@@ -708,6 +708,7 @@ begin
 {$ENDIF}
 end;
 
+{$IFNDEF USE_LIBEET}
 procedure TEETSigner.RemoveBSTCert;
 var
   secKey, tmpKey : xmlSecKeyPtr;
@@ -771,6 +772,7 @@ begin
      raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
   {$ENDIF}
 end;
+{$ENDIF}
 
 procedure TEETSigner.SetActive(const Value: Boolean);
 var
