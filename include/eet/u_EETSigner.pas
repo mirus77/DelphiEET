@@ -49,6 +49,7 @@ Type
     function ExtractSubjectItem(aSubject, ItemName : string): string;
     {$IFNDEF USE_LIBEET}
     procedure AddBSTCert(aValue : AnsiString);
+    procedure RemoveBSTCert;
     {$ENDIF}
   public
     {:Nacita klice}
@@ -707,6 +708,70 @@ begin
 {$ENDIF}
 end;
 
+procedure TEETSigner.RemoveBSTCert;
+var
+  secKey, tmpKey : xmlSecKeyPtr;
+  keyInfoCtx: xmlSecKeyInfoCtxPtr;
+  store : xmlSecKeyStorePtr;
+  list : xmlSecPtrListPtr;
+  size, Pos : xmlSecSize;
+  {$IFDEF DEBUG}
+  keysfilename : AnsiString;
+  {$ENDIF}
+
+  function xmlSecKeyStoreCheckSize(store : xmlSecKeyStorePtr; size : xmlSecSize): boolean;
+  begin
+    Result := (store^.id.objSize >= size);
+  end;
+
+  function xmlSecSimpleKeysStoreGetList(store : xmlSecKeyStorePtr) : xmlSecPtrListPtr;
+  begin
+    Result := nil;
+    if xmlSecKeyStoreCheckSize(store, sizeof(xmlSecKeyStore) + sizeof(xmlSecPtrList)) then
+      begin
+        Result := xmlSecPtrListPtr(Pointer(NativeInt(xmlSecBytePtr(store)) + sizeof(xmlSecKeyStore)));
+      end;
+  end;
+begin
+  CheckActive;
+
+  keyInfoCtx := xmlSecKeyInfoCtxCreate(FMngr);
+  if keyInfoCtx = nil
+  then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecKeyInfoCtxCreate - BSTCert']);
+
+  secKey := xmlSecKeysMngrFindKey(FMngr, RESPONSECERT_KEYNAME, keyInfoCtx);
+
+  try
+    if secKey <> nil then
+      begin
+        store := xmlSecKeysMngrGetKeysStore(FMngr);
+        list := xmlSecSimpleKeysStoreGetList(store);
+        size := xmlSecPtrListGetSize(list);
+        for pos := 0 to size - 1 do
+          begin
+           tmpkey := xmlSecKeyPtr(xmlSecPtrListGetItem(list, pos));
+           if((tmpkey <> nil) and (xmlSecKeyMatch(tmpkey, RESPONSECERT_KEYNAME, Pointer(Addr(keyInfoCtx.keyReq))) = 1))
+           then
+             begin
+               if xmlSecPtrListRemove(list,pos) < 0
+               then raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecPtrListRemove - BSTCert']);
+             end;
+          end;
+      end;
+  finally
+    if keyInfoCtx <> nil then
+       xmlSecKeyInfoCtxDestroy(keyInfoCtx);
+    if secKey <> nil then
+       xmlSecKeyDestroy(secKey);
+  end;
+
+  {$IFDEF DEBUG}
+  keysfilename:= 'keys-response-BSTremoved.xml';
+  if xmlSecCryptoAppDefaultKeysMngrSave(FMngr,@keysfilename[1],$FFFF) < 0 then
+     raise EEETSignerException.CreateFmt('Error: failed to save keys to "%s"', [String(keysfilename)]);
+  {$ENDIF}
+end;
+
 procedure TEETSigner.SetActive(const Value: Boolean);
 var
   ms : TMemoryStream;
@@ -1077,6 +1142,7 @@ begin
   CheckActive;
   ClearCertInfo(FResponseCertInfo);
 {$IFNDEF USE_LIBEET}
+  RemoveBSTCert;
   Doc := nil; DsigCtx := nil; {Attr := nil;}
   Result := False;
   try
@@ -1119,8 +1185,6 @@ begin
               xmlAddID(nil, Doc, IdVal, Attr);
             end;
 
-            AddBSTCert(xmlNodeGetContent(BSTNode));
-
             // simulate X509Certifica node from
             // hack KeyInfo for verify from BinarySecurityToken
             KeyInfoNode := xmlSecFindNode(xmlDocGetRootElement(Doc), xmlCharPtr(xmlSecNodeKeyInfo), xmlCharPtr(xmlSecDSigNs));
@@ -1153,6 +1217,8 @@ begin
         {$BOOLEVAL OFF}
         if (xmlSecDSigCtxVerify(DsigCtx, SignatureNode) = 0) then
             Result := (DsigCtx^.status = xmlSecDSigStatusSucceeded);
+        if Result then
+          AddBSTCert(xmlNodeGetContent(BSTNode));
       end;
 
   finally
