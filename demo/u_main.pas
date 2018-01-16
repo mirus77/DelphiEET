@@ -11,7 +11,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
   Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, XSBuiltIns, InvokeRegistry,
-  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$IFEND} ComCtrls;
+  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$IFEND} ComCtrls, u_EETSigner;
 
 type
   TTestEETForm = class(TForm)
@@ -32,8 +32,12 @@ type
     lblKeyValidTo: TLabel;
     pnlCertInfo: TPanel;
     lblSpace1: TLabel;
-    pnl1: TPanel;
+    pnlKeySubject: TPanel;
     lblKeySubject: TLabel;
+    pnlLog: TPanel;
+    tsLog: TTabSheet;
+    grpLog: TGroupBox;
+    mmoLog: TMemo;
     procedure btnOdeslatClick(Sender: TObject);
     procedure btnVerifyResponseClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -50,6 +54,7 @@ type
     {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     function VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}) : boolean;
     {$IFEND}
+    procedure VerifyResponseCert(const ResponseCertInfo : TEETSignerCertInfo; var IsValidResponse : boolean);
   public
     procedure DoOdeslatTrzba;
   end;
@@ -60,7 +65,7 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP, XMLIntf, XMLDoc, u_EETTrzba, {$IF CompilerVersion > 24} UITypes,{$IFEND} u_EETSigner;
+  u_EETServiceSOAP, XMLIntf, XMLDoc, {$IF CompilerVersion > 24} UITypes,{$IFEND} u_EETTrzba;
 
 {$R *.dfm}
 
@@ -132,6 +137,7 @@ procedure TTestEETForm.btnVerifyResponseClick(Sender: TObject);
 var
   lSigner : TEETSigner;
   ms : TMemoryStream;
+  bValidResponseCert : Boolean;
 begin
   if not FileExists('response.xml') then exit;
 
@@ -145,9 +151,15 @@ begin
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms,'Body', 'Id') then
-      MessageDlg('Ovìøení XML - OK.', mtInformation, [mbOK], 0)
+      begin
+        VerifyResponseCert(lSigner.ResponseCertInfo, bValidResponseCert);
+        if bValidResponseCert then
+          MessageDlg('Ovìøení XML - OK.', mtInformation, [mbOK], 0)
+        else
+          MessageDlg('Neplatný podpis zprávy !!!', mtError, [mbOK], 0);
+      end
     else
-      MessageDlg('Neplatný podpis zprávy !!!', mtError, [mbOK], 0)
+      MessageDlg('Neplatná odpovìï !!!', mtError, [mbOK], 0);
   finally
     ms.Free;
     lSigner.Free;
@@ -184,6 +196,7 @@ begin
 //    EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnBeforeSendRequest := BeforeSendExecute;
     EET.OnAfterSendRequest := AfterSendExecute;
+    EET.OnVerifyResponse := VerifyResponseCert;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     EET.OnVerifyPeer := VerifyPeer;
     EET.RootCertFile := ExpandFileName('..\cert\Geotrust_PCA_G3_Root.cer');
@@ -348,6 +361,12 @@ begin
     synmResponse.Lines.LoadFromFile('response.xml'{$IFNDEF LEGACY_RIO}, TEncoding.UTF8{$ENDIF});
 end;
 
+procedure TTestEETForm.VerifyResponseCert(const ResponseCertInfo: TEETSignerCertInfo; var IsValidResponse: boolean);
+begin
+  IsValidResponse := True;
+  mmoLog.Lines.Add('ResponseCert : Subject ' + ResponseCertInfo.Subject);
+end;
+
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
 function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}): boolean;
 begin
@@ -356,6 +375,7 @@ begin
   if ADepth = 0 then
     begin
       synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
+      mmoLog.Lines.Add('Https : Subject ' + Certificate.Subject.OneLine);
     end;
   {$ENDIF}
 end;

@@ -2,7 +2,7 @@ object TestEETForm: TTestEETForm
   Left = 0
   Top = 0
   Caption = 'Test EET'
-  ClientHeight = 551
+  ClientHeight = 410
   ClientWidth = 898
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -15,7 +15,7 @@ object TestEETForm: TTestEETForm
   OnShow = FormShow
   DesignSize = (
     898
-    551)
+    410)
   PixelsPerInch = 96
   TextHeight = 13
   object btnOdeslat: TButton
@@ -31,7 +31,7 @@ object TestEETForm: TTestEETForm
     Left = 0
     Top = 80
     Width = 898
-    Height = 471
+    Height = 330
     Align = alBottom
     Anchors = [akLeft, akTop, akRight, akBottom]
     Caption = 'pnlDebug'
@@ -40,8 +40,8 @@ object TestEETForm: TTestEETForm
       Left = 1
       Top = 1
       Width = 896
-      Height = 469
-      ActivePage = tsRequest
+      Height = 328
+      ActivePage = tsLog
       Align = alClient
       TabOrder = 0
       object tsRequest: TTabSheet
@@ -51,7 +51,7 @@ object TestEETForm: TTestEETForm
           Left = 3
           Top = 3
           Width = 882
-          Height = 435
+          Height = 294
           Align = alClient
           Caption = ' Tr'#382'ba '
           TabOrder = 0
@@ -59,7 +59,7 @@ object TestEETForm: TTestEETForm
             Left = 2
             Top = 15
             Width = 878
-            Height = 418
+            Height = 277
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -87,7 +87,7 @@ object TestEETForm: TTestEETForm
           Left = 0
           Top = 0
           Width = 888
-          Height = 441
+          Height = 300
           Align = alClient
           Caption = ' Odpoved '
           TabOrder = 0
@@ -95,7 +95,7 @@ object TestEETForm: TTestEETForm
             Left = 2
             Top = 15
             Width = 884
-            Height = 424
+            Height = 283
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -113,6 +113,38 @@ object TestEETForm: TTestEETForm
             Highlighter = synxmlsyn2
             ReadOnly = True
             FontSmoothing = fsmNone
+          end
+        end
+      end
+      object tsLog: TTabSheet
+        Caption = 'Log'
+        ImageIndex = 2
+        object grpLog: TGroupBox
+          Left = 0
+          Top = 0
+          Width = 888
+          Height = 300
+          Align = alClient
+          Caption = ' Log '
+          TabOrder = 0
+          object pnlLog: TPanel
+            Left = 2
+            Top = 15
+            Width = 884
+            Height = 283
+            Align = alClient
+            Caption = 'pnlLog'
+            TabOrder = 0
+            object mmoLog: TMemo
+              Left = 1
+              Top = 1
+              Width = 882
+              Height = 281
+              Align = alClient
+              ScrollBars = ssBoth
+              TabOrder = 0
+              WordWrap = False
+            end
           end
         end
       end
@@ -182,7 +214,7 @@ object TestEETForm: TTestEETForm
       Caption = ' '
     end
   end
-  object pnl1: TPanel
+  object pnlKeySubject: TPanel
     Left = 447
     Top = 9
     Width = 443

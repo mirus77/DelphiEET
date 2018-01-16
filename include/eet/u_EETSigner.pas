@@ -87,7 +87,7 @@ Type
   published
     property PrivKeyInfo : TEETSignerCertInfo read FPrivKeyInfo;
     property ResponseCertInfo : TEETSignerCertInfo read FResponseCertInfo;
-end;
+  end;
 
   TCERTrustedList = class(TList)
   private

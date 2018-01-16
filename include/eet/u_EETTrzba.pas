@@ -45,6 +45,8 @@ type
     property EET : TEETTrzba read FEET write FEET;
   end;
 
+  TVerifyResponseEvent = procedure(const ResponseCertInfo : TEETSignerCertInfo; var IsValidResponse : boolean) of object;
+
   TEETTrzba = class(TComponent)
   private
     FEETService : EET;
@@ -71,8 +73,8 @@ type
     FUseProxy: boolean;
     FRequestStream: TMemoryStream;
     FResponseStream: TMemoryStream;
-    FResponseTrustCertOrganization: string;
     FValidResponseCert: Boolean;
+    FOnVerifyResponseEvent: TVerifyResponseEvent;
   protected
     IsInitialized: boolean;
     FSigner : TEETSigner;
@@ -128,10 +130,10 @@ type
     property Signer : TEETSigner read FSigner;
     property RequestStream : TMemoryStream read FRequestStream;
     property ResponseStream : TMemoryStream read FResponseStream;
-    property ResponseTrustCertOrganization : string read FResponseTrustCertOrganization write FResponseTrustCertOrganization;
 {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
     property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
 {$IFEND}
+    property OnVerifyResponse : TVerifyResponseEvent read FOnVerifyResponseEvent write FOnVerifyResponseEvent;
   end;
 
   TEETTrzbaThread = class(TThread)
@@ -207,7 +209,6 @@ begin
   FPFXStream := TMemoryStream.Create;
   FCERTrustedList := TCERTrustedList.Create;
   FHttpsTrustName := 'www.eet.cz';
-  FResponseTrustCertOrganization := 'Èeská republika - Generální finanèní øeditelství';
   FConnectTimeout := 2000;
   FSendTimeout := 3000;
   FReceiveTimeout := 3000;
@@ -875,8 +876,8 @@ begin
   if FValidResponse then
     begin
       FValidResponseCert := True;
-      if(FResponseTrustCertOrganization <> '') then
-        FValidResponseCert := FSigner.ResponseCertInfo.Organisation = FResponseTrustCertOrganization;
+      if Assigned(FOnVerifyResponseEvent) then
+        FOnVerifyResponseEvent(FSigner.ResponseCertInfo, FValidResponse);
     end;
 end;
 
