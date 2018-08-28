@@ -577,8 +577,8 @@ begin
                  FPrivKeyInfo.Organisation := ExtractSubjectItem(a_subject, 'O');
                  FPrivKeyInfo.Country := ExtractSubjectItem(a_subject, 'C');
                end;
-             if Length(FPrivKeyInfo.Subject) > 2 then
-               if Copy(FPrivKeyInfo.Subject,1,2) = 'CZ'  then
+             if Length(FPrivKeyInfo.CommonName) > 2 then
+               if Copy(FPrivKeyInfo.CommonName,1,2) = 'CZ'  then
                  begin
                    FPrivKeyInfo.Name := 'p';
                    if xmlSecOpenSSLX509CertGetTime(X509_get_notBefore(x509cert), a_time) = 0 then
