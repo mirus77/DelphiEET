@@ -10,15 +10,21 @@ interface
 {$LEGACYIFEND ON}
 {$IFEND}
 
+{$DEFINE USE_RIO_CLIENT} // RIO is default, don`t comment
+{.$DEFINE USE_INDY_CLIENT}
+{$DEFINE USE_SYNAPSE_CLIENT}
+{.$DEFINE USE_SBRIDGE_CLIENT}
+{.$DEFINE USE_NETHTTP_CLIENT}
+
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
   Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter,
   SynHighlighterXML, XSBuiltIns, InvokeRegistry, ExtCtrls, ComCtrls,
   u_EETSigner,
-  u_EETHttpClient_Indy,
-  {$IF CompilerVersion >= 29.0 }u_EETHttpClient_Net,{$IFEND}
-//  u_EETHttpClient_SB,
-//  u_EETHttpClient_Synapse,
+  {$IFDEF USE_INDY_CLIENT}    u_EETHttpClient_Indy, {$UNDEF USE_RIO_CLIENT}{$ENDIF}
+  {$IFDEF USE_NETHTTP_CLIENT} u_EETHttpClient_Net,  {$UNDEF USE_RIO_CLIENT}{$ENDIF}
+  {$IFDEF USE_SBRIDGE_CLIENT} u_EETHttpClient_SB,   {$UNDEF USE_RIO_CLIENT}{$ENDIF}
+  {$IFDEF USE_SYNAPSE_CLIENT} u_EETHttpClient_Synapse,{$UNDEF USE_RIO_CLIENT}{$ENDIF}
   u_EETHttpClient;
 
 type
@@ -151,7 +157,9 @@ var
   Lst: TStringList;
   I: Integer;
   ms: TMemoryStream;
+  {$IFNDEF USE_RIO_CLIENT}
   aClient: TEETHttpClient;
+  {$ENDIF}
 
   function DoubleToCastkaType(Value: Double): CastkaType;
   begin
@@ -163,11 +171,12 @@ begin
   EET := TEETTrzba.Create(nil);
   ms := TMemoryStream.Create;
   eTrzba := EET.NewRevenue;
-   aClient := TEETHttpClientIndy.Create(nil);
-//  aClient := TEETHttpClientNet.Create(nil);
-  // aClient := TEETHttpClientSB.Create(nil);
-  // aClient := TEETHttpClientSynapse.Create(nil);
+  {$IFDEF USE_INDY_CLIENT} aClient := TEETHttpClientIndy.Create(nil); {$ENDIF}
+  {$IFDEF USE_NETHTTP_CLIENT}  aClient := TEETHttpClientNet.Create(nil); {$ENDIF}
+  {$IFDEF USE_SBRIDGE_CLIENT} aClient := TEETHttpClientSB.Create(nil); {$ENDIF}
+  {$IFDEF USE_SYNAPSE_CLIENT} aClient := TEETHttpClientSynapse.Create(nil); {$ENDIF}
   try
+    {$IFNDEF USE_RIO_CLIENT}
     // Verify HTTPS Server certificate
     aClient.RootCertFile := ExpandFileName('..\cert\DigiCertGlobalRootG2.cer');
     // Verify CommonName of HTTPS Sever certificate
@@ -176,6 +185,7 @@ begin
     aClient.ReceiveTimeout := 3000;
     // aClient.UseProxy := true;
     // aClient.ProxyHost := 'proxy';
+    {$ENDIF}
 
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     // EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
@@ -229,8 +239,11 @@ begin
 //     ms.Position := 0;
 //     ms.SaveToFile('eTrzbaLoaded.xml');
 
+    {$IFDEF USE_RIO_CLIENT}
+    Odp := EET.SendRevenueWithRIO(eTrzba, False, 0);  // native Delphi SOAP
+    {$ELSE}
     Odp := EET.SendRevenue(aClient, eTrzba, False, 0);
-//     Odp := EET.SendRevenueWithRIO(eTrzba, False, 0);  // Without TEETHttpClient, native Delphi SOAP
+    {$ENDIF}
 
     ms.Clear;
     EET.SaveToXML(eTrzba, ms);
@@ -301,7 +314,9 @@ begin
     eTrzba.Free;
     EET.Free;
     ms.Free;
+    {$IFNDEF USE_RIO_CLIENT}
     aClient.Free;
+    {$ENDIF}
   end;
 end;
 

@@ -1,9 +1,9 @@
 object TestEETForm: TTestEETForm
-  Left = 0
-  Top = 0
+  Left = 283
+  Top = 151
+  Width = 931
+  Height = 449
   Caption = 'Test EET'
-  ClientHeight = 410
-  ClientWidth = 898
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -14,7 +14,7 @@ object TestEETForm: TTestEETForm
   OnCreate = FormCreate
   OnShow = FormShow
   DesignSize = (
-    898
+    915
     410)
   PixelsPerInch = 96
   TextHeight = 13
@@ -30,7 +30,7 @@ object TestEETForm: TTestEETForm
   object pnlDebug: TPanel
     Left = 0
     Top = 80
-    Width = 898
+    Width = 915
     Height = 330
     Align = alBottom
     Anchors = [akLeft, akTop, akRight, akBottom]
@@ -39,7 +39,7 @@ object TestEETForm: TTestEETForm
     object pgcDebug: TPageControl
       Left = 1
       Top = 1
-      Width = 896
+      Width = 913
       Height = 328
       ActivePage = tsRequest
       Align = alClient
@@ -47,19 +47,18 @@ object TestEETForm: TTestEETForm
       object tsRequest: TTabSheet
         Caption = 'Po'#382'adavek'
         object grpTrzba: TGroupBox
-          AlignWithMargins = True
-          Left = 3
-          Top = 3
-          Width = 882
-          Height = 294
+          Left = 0
+          Top = 0
+          Width = 905
+          Height = 300
           Align = alClient
           Caption = ' Tr'#382'ba '
           TabOrder = 0
           object synmRequest: TSynMemo
             Left = 2
             Top = 15
-            Width = 878
-            Height = 277
+            Width = 901
+            Height = 283
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -82,10 +81,6 @@ object TestEETForm: TTestEETForm
       object tsResponse: TTabSheet
         Caption = 'Odpov'#283#271
         ImageIndex = 1
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object grpResponse: TGroupBox
           Left = 0
           Top = 0
@@ -121,10 +116,6 @@ object TestEETForm: TTestEETForm
       object tsLog: TTabSheet
         Caption = 'Log'
         ImageIndex = 2
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object grpLog: TGroupBox
           Left = 0
           Top = 0
@@ -190,30 +181,27 @@ object TestEETForm: TTestEETForm
     Height = 25
     Anchors = [akLeft, akTop, akRight]
     Caption = ' '
-    Padding.Left = 5
     TabOrder = 5
     object lblKeyValidFrom: TLabel
-      Left = 6
+      Left = 1
       Top = 1
       Width = 74
       Height = 23
       Align = alLeft
       Caption = 'lblKeyValidFrom'
       Layout = tlCenter
-      ExplicitHeight = 13
     end
     object lblKeyValidTo: TLabel
-      Left = 94
+      Left = 89
       Top = 1
       Width = 62
       Height = 23
       Align = alLeft
       Caption = 'lblKeyValidTo'
       Layout = tlCenter
-      ExplicitHeight = 13
     end
     object lblSpace1: TLabel
-      Left = 80
+      Left = 75
       Top = 1
       Width = 14
       Height = 23
@@ -229,17 +217,15 @@ object TestEETForm: TTestEETForm
     Height = 25
     Anchors = [akLeft, akTop, akRight]
     Caption = ' '
-    Padding.Left = 5
     TabOrder = 6
     object lblKeySubject: TLabel
-      Left = 6
+      Left = 1
       Top = 1
       Width = 64
       Height = 23
       Align = alLeft
       Caption = 'lblKeySubject'
       Layout = tlCenter
-      ExplicitHeight = 13
     end
   end
   object synxmlsyn2: TSynXMLSyn

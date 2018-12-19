@@ -5,6 +5,10 @@ interface
 {* functions SHA1 is independent on libeay32.dll when use synacode.pas unit, DEFINE USE_SYNACODE *}
 {.$DEFINE USE_SYNACODE}
 
+{$IF CompilerVersion >= 24.0}
+  {$LEGACYIFEND ON}
+{$IFEND}
+
 uses Classes,
 {$IFDEF USE_LIBEET}
   u_libeet,
@@ -209,7 +213,9 @@ begin
   TempList := TStringList.Create;
   try
     TempList.Delimiter := '/';
+    {$IF CompilerVersion > 15}
     TempList.StrictDelimiter := True;
+    {$IFEND}
     TempList.DelimitedText := aSubject;
     if TempList.IndexOfName(ItemName) <> -1 then
       Result := Trim(TempList.Values[ItemName]);
