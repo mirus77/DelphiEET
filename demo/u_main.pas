@@ -1,17 +1,25 @@
 unit u_main;
 
 interface
+
 {$IFNDEF UNICODE}
 {$DEFINE LEGACY_RIO}
 {$ENDIF}
 // For Delphi XE3 and up:
 {$IF CompilerVersion >= 24.0 }
-  {$LEGACYIFEND ON}
+{$LEGACYIFEND ON}
 {$IFEND}
+
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
-  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter, SynHighlighterXML, XSBuiltIns, InvokeRegistry,
-  ExtCtrls, {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)} IdSSLOpenSSL, {$IFEND} ComCtrls, u_EETSigner;
+  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter,
+  SynHighlighterXML, XSBuiltIns, InvokeRegistry, ExtCtrls, ComCtrls,
+  u_EETSigner,
+  u_EETHttpClient_Indy,
+  {$IF CompilerVersion >= 29.0 }u_EETHttpClient_Net,{$IFEND}
+//  u_EETHttpClient_SB,
+//  u_EETHttpClient_Synapse,
+  u_EETHttpClient;
 
 type
   TTestEETForm = class(TForm)
@@ -45,18 +53,9 @@ type
     procedure btnFormatRequestClick(Sender: TObject);
     procedure btnFormatOdpovedClick(Sender: TObject);
   private
-    {$IFDEF LEGACY_RIO}
-    procedure BeforeSendExecute(const MethodName: string; var SOAPRequest: InvString);
-    {$ELSE}
-    procedure BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
-    {$ENDIF}
-    procedure AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
-    {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    function VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}) : boolean;
-    {$IFEND}
-    procedure VerifyResponseCert(const ResponseCertInfo : TEETSignerCertInfo; var IsValidResponse : boolean);
+    procedure VerifyResponseCert(const ResponseCertInfo: TEETSignerCertInfo; var IsValidResponse: boolean);
   public
-    procedure DoOdeslatTrzba;
+    procedure DoSendRevenue;
   end;
 
 var
@@ -65,54 +64,27 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP, XMLIntf, XMLDoc, {$IF CompilerVersion > 24} UITypes,{$IFEND} u_EETTrzba;
+  u_EETServiceSOAP, XMLIntf, XMLDoc,
+{$IF CompilerVersion > 24} UITypes, {$IFEND}
+  u_EETTrzba;
 
 {$R *.dfm}
 
-function FormatXML(XMLString : string): string;
+function FormatXML(XMLString: string): string;
 var
-   oXml : IXMLDocument;
+  oXml: IXMLDocument;
 begin
   Result := '';
   oXml := TXMLDocument.Create(nil);
   try
     oXml.LoadFromXML(XMLString);
-    oXml.XML.Text:=xmlDoc.FormatXMLData(oXml.XML.Text);
+    oXml.XML.Text := XMLDoc.FormatXMLData(oXml.XML.Text);
     oXml.Active := true;
     oXml.SaveToXML(Result);
   finally
     oXml := nil;
   end;
 end;
-
-procedure TTestEETForm.AfterSendExecute(const MethodName: string; SOAPResponse: TStream);
-begin
-  (SOAPResponse as TMemoryStream).SaveToFile('response.xml');
-end;
-
-{$IFDEF LEGACY_RIO}
-procedure TTestEETForm.BeforeSendExecute(const MethodName: string; var SOAPRequest: InvString);
-var
-  MemStream : TMemoryStream;
-  S : string;
-begin
-  MemStream := TMemoryStream.Create;
-  try
-    S := UTF8Encode(SOAPRequest);
-    MemStream.Position := 0;
-    MemStream.Write(S[1], Length(S));
-    MemStream.SaveToFile('request.xml');
-  finally
-    MemStream.Free;
-  end;
-end;
-{$ELSE}
-procedure TTestEETForm.BeforeSendExecute(const MethodName: string; SOAPRequest: TStream);
-begin
-  (SOAPRequest as TMemoryStream).SaveToFile('request.xml');
-  SOAPRequest.Seek(0, soFromBeginning);
-end;
-{$ENDIF}
 
 procedure TTestEETForm.btnFormatOdpovedClick(Sender: TObject);
 begin
@@ -130,16 +102,17 @@ begin
   synmResponse.Lines.Clear;
   pgcDebug.ActivePage := tsRequest;
   pgcDebug.ActivePage := tsResponse;
-  DoOdeslatTrzba;
+  DoSendRevenue;
 end;
 
 procedure TTestEETForm.btnVerifyResponseClick(Sender: TObject);
 var
-  lSigner : TEETSigner;
-  ms : TMemoryStream;
-  bValidResponseCert : Boolean;
+  lSigner: TEETSigner;
+  ms: TMemoryStream;
+  bValidResponseCert: boolean;
 begin
-  if not FileExists('response.xml') then exit;
+  if not FileExists('response.xml') then
+    exit;
 
   lSigner := TEETSigner.Create(nil);
   ms := TMemoryStream.Create;
@@ -150,38 +123,37 @@ begin
     lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
-    if lSigner.VerifyXML(ms,'Body', 'Id') then
+    if lSigner.VerifyXML(ms, 'Body', 'Id') then
       begin
         VerifyResponseCert(lSigner.ResponseCertInfo, bValidResponseCert);
         if bValidResponseCert then
-          MessageDlg('Ovìøení XML - OK.', mtInformation, [mbOK], 0)
+          MessageDlg('XML Verifying - OK.', mtInformation, [mbOK], 0)
         else
-          MessageDlg('Neplatný podpis zprávy !!!', mtError, [mbOK], 0);
+          MessageDlg('Invalid message signature !!!', mtError, [mbOK], 0);
       end
     else
-      MessageDlg('Neplatná odpovìï !!!', mtError, [mbOK], 0);
+      MessageDlg('Invalid response !!!', mtError, [mbOK], 0);
   finally
     ms.Free;
     lSigner.Free;
   end;
 end;
 
-procedure TTestEETForm.DoOdeslatTrzba;
+procedure TTestEETForm.DoSendRevenue;
 
 const
-  LocFS : TFormatSettings = (
-    DecimalSeparator : '.'
-  );
+  LocFS: TFormatSettings = (DecimalSeparator: '.');
 
 var
-  Odp : Odpoved;
-  eTrzba : Trzba;
-  EET : TEETTrzba;
-  Lst : TStringList;
+  Odp: Odpoved;
+  eTrzba: Trzba;
+  EET: TEETTrzba;
+  Lst: TStringList;
   I: Integer;
-  ms : TMemoryStream;
+  ms: TMemoryStream;
+  aClient: TEETHttpClient;
 
-  function DoubleToCastkaType(Value : Double) : CastkaType;
+  function DoubleToCastkaType(Value: Double): CastkaType;
   begin
     Result := CastkaType.Create;
     Result.DecimalString := FormatFloat('0.00', Value, LocFS);
@@ -189,35 +161,37 @@ var
 
 begin
   EET := TEETTrzba.Create(nil);
-  eTrzba := EET.NewTrzba;
   ms := TMemoryStream.Create;
+  eTrzba := EET.NewRevenue;
+   aClient := TEETHttpClientIndy.Create(nil);
+//  aClient := TEETHttpClientNet.Create(nil);
+  // aClient := TEETHttpClientSB.Create(nil);
+  // aClient := TEETHttpClientSynapse.Create(nil);
   try
-    EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
-//    EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
-    EET.OnBeforeSendRequest := BeforeSendExecute;
-    EET.OnAfterSendRequest := AfterSendExecute;
-    EET.OnVerifyResponse := VerifyResponseCert;
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    EET.OnVerifyPeer := VerifyPeer;
-    EET.RootCertFile := ExpandFileName('..\cert\DigiCertGlobalRootG2.cer');
-{$IFEND}
-    EET.PFXStream.LoadFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'));
-    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
-    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
-    EET.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
-//    EET.HttpsTrustName := 'www.eet.cz';  // for HTTPS validation default : 'www.eet.cz'
-    EET.PFXPassword := 'eet';
-    EET.ConnectTimeout := 2000;
-//    EET.UseProxy := true;
-//    EET.ProxyHost := 'proxy';
-    EET.Initialize;
+    // Verify HTTPS Server certificate
+    aClient.RootCertFile := ExpandFileName('..\cert\DigiCertGlobalRootG2.cer');
+    // Verify CommonName of HTTPS Sever certificate
+    aClient.HttpsTrustName := 'www.eet.cz'; // for HTTPS ComonName validation default : 'www.eet.cz'
+    aClient.ConnectTimeout := 2000;
+    aClient.ReceiveTimeout := 3000;
+    // aClient.UseProxy := true;
+    // aClient.ProxyHost := 'proxy';
 
-    lblKeySubject.Caption := 'Pøedmìt :' + EET.Signer.PrivKeyInfo.CommonName;
-    lblKeyValidFrom.Caption := 'Platnost klíèe od :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
-    lblKeyValidTo.Caption := 'Platnost klíèe do :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
+    EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
+    // EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
+    EET.OnVerifyResponse := VerifyResponseCert;
+    EET.Signer.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
+    EET.Initialize; { * init signer * }
+
+    lblKeySubject.Caption := 'Certificate Subject :' + EET.Signer.PrivKeyInfo.CommonName;
+    lblKeyValidFrom.Caption := 'Certificate Key valid from :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
+    lblKeyValidTo.Caption := 'Certificate Key valid to :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
 
     eTrzba.Hlavicka.prvni_zaslani := False;
-//    eTrzba.Hlavicka.overeni := True;
+    // eTrzba.Hlavicka.overeni := True;
 
     eTrzba.Data.dic_popl := 'CZ00000019';
     eTrzba.Data.id_provoz := 273;
@@ -239,42 +213,32 @@ begin
     eTrzba.Data.zakl_dan3 := DoubleToCastkaType(9756.46);
     eTrzba.Data.zakl_nepodl_dph := DoubleToCastkaType(3036.00);
 
-//    EET.SignTrzba(eTrzba); // normalizace datumu a vygenervani PKP,BKP
+     //EET.SignRevenue(eTrzba); // normalize date and PKP,BKP creating
 
-    // test ulozeni do XML a nacteni z XML
-    // nacteni nefunguje v Delphi 2007
-//    ms.Clear;
-//    EET.SaveToXML(eTrzba, ms);
-//    ms.Position := 0;
-//    ms.SaveToFile('eTrzba.xml');
-//    eTrzba.Free;
-//    eTrzba := EET.NewTrzba;
-//    EET.LoadFromXML(eTrzba, ms);
-//    ms.Clear;
-//    EET.SaveToXML(eTrzba, ms);
-//    ms.Position := 0;
-//    ms.SaveToFile('eTrzbaLoaded.xml');
+    // test for saving to XML amd load from XML
+    // loading don't work under Delphi 2007
+//     ms.Clear;
+//     EET.SaveToXML(eTrzba, ms);
+//     ms.Position := 0;
+//     ms.SaveToFile('eTrzba.xml');
+//     eTrzba.Free;
+//     eTrzba := EET.NewRevenue;
+//     EET.LoadFromXML(eTrzba, ms);
+//     ms.Clear;
+//     EET.SaveToXML(eTrzba, ms);
+//     ms.Position := 0;
+//     ms.SaveToFile('eTrzbaLoaded.xml');
 
-{$IF Defined(USE_DIRECTINDY)}
-{$MESSAGE HINT 'USE_DIRECTINDY'}
-    Odp := EET.OdeslaniTrzbyDirectIndy(eTrzba);
-{$ELSE}
-  {$IF Defined(USE_INDY)}
-     {$MESSAGE HINT 'USE_INDY'}
-  {$ELSE}
-     {$MESSAGE HINT 'USE WinInet default SOAP WebRequest'}
-  {$IFEND}
-    Odp := EET.OdeslaniTrzby(eTrzba, false, 0);
-{$IFEND}
+    Odp := EET.SendRevenue(aClient, eTrzba, False, 0);
+//     Odp := EET.SendRevenueWithRIO(eTrzba, False, 0);  // Without TEETHttpClient, native Delphi SOAP
 
     ms.Clear;
     EET.SaveToXML(eTrzba, ms);
     ms.Position := 0;
     ms.SaveToFile('eTrzbaSigned.xml');
 
-    // nacteni xml Soap Request po zpracovani
-    // nacteni xml Soap Response po zpracovani
-    // vyjmuto z eventù Before a After, protože zamrzala aplikace pøi použití WainForSingleObject
+    // loading xml Soap Request for treatment
+    // loading xml Soap Response for treatment
     EET.RequestStream.Position := 0;
     EET.ResponseStream.Position := 0;
     synmRequest.Lines.LoadFromStream(EET.RequestStream);
@@ -288,15 +252,15 @@ begin
               begin
                 Lst := TStringList.Create;
                 try
-                  if EET.HasVarovani(Odp) then
+                  if EET.HasWarnings(Odp) then
                     begin
-                      Lst.Add('Varovaní : ');
+                      Lst.Add('Warnings : ');
                       for I := 0 to Length(Odp.Varovani) - 1 do
-                        Lst.Add(Format('%s - kód : %d', [Odp.Varovani[I].Text, Odp.Varovani[I].kod_varov]));
+                        Lst.Add(Format('%s - code : %d', [Odp.Varovani[I].Text, Odp.Varovani[I].kod_varov]));
                     end;
                   if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
                     Lst.Add(Format('FIK : %s', [Odp.Potvrzeni.fik]));
-                  if EET.HasVarovani(Odp) then
+                  if EET.HasWarnings(Odp) then
                     MessageDlg(Lst.Text, mtWarning, [mbOK], 0)
                   else
                     MessageDlg(Lst.Text, mtInformation, [mbOK], 0)
@@ -307,9 +271,9 @@ begin
             else
               begin
                 if EET.ValidResponse and (EET.ValidResponseCert = False) then
-                   MessageDlg('Neplatný pùvod odpovìdi !!!', mtError, [mbOK], 0)
+                  MessageDlg('Invalid response origin !!!', mtError, [mbOK], 0)
                 else
-                   MessageDlg('Neplatný podpis odpovìdi !!!', mtError, [mbOK], 0);
+                  MessageDlg('Invalid response signature !!!', mtError, [mbOK], 0);
               end
           end
         else
@@ -317,40 +281,42 @@ begin
             if Odp.Chyba <> nil then
               begin
                 if Odp.Chyba.Kod <> 0 then
-                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Text]);
-                {$IFDEF DEBUG}
+                  ShowMessageFmt('Error : %d - %s', [Odp.Chyba.Kod, Odp.Chyba.Text]);
+{$IFDEF DEBUG}
                 if Odp.Chyba.Kod = 0 then
-                  ShowMessageFmt('Chyba : %d - %s', [Odp.Chyba.Kod,Odp.Chyba.Text]);
-                {$ENDIF}
+                  ShowMessageFmt('Error : %d - %s', [Odp.Chyba.Kod, Odp.Chyba.Text]);
+{$ENDIF}
               end
-            end;
+          end;
       end
     else
       begin
         if EET.ErrorCode <> 0 then
-          ShowMessageFmt('Chyba : %d - %s', [EET.ErrorCode,EET.ErrorMessage]);
+          ShowMessageFmt('Error : %d - %s', [EET.ErrorCode, EET.ErrorMessage]);
       end;
     synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
   finally
-    if Odp <> nil then FreeAndNil(Odp);    
+    if Odp <> nil then
+      FreeAndNil(Odp);
     eTrzba.Free;
     EET.Free;
     ms.Free;
+    aClient.Free;
   end;
 end;
 
 procedure TTestEETForm.FormCreate(Sender: TObject);
 begin
-  lblKeySubject.Caption := 'Pøedmìt :';
-  lblKeyValidFrom.Caption := 'Platnost klíèe od :';
-  lblKeyValidTo.Caption := 'Platnost klíèe do :';
+  lblKeySubject.Caption := 'Certificate Subject :';
+  lblKeyValidFrom.Caption := 'Certificate Key valid from :';
+  lblKeyValidTo.Caption := 'Certificate Key valid to :';
 
   pgcDebug.ActivePage := tsRequest;
-  {$IFDEF USE_LIBEET};
+{$IFDEF USE_LIBEET};
   Caption := Caption + ' - USE libeetsigner.dll';
-  {$ELSE}
+{$ELSE}
   Caption := Caption + ' - USE xmlsec library';
-  {$ENDIF}
+{$ENDIF}
 end;
 
 procedure TTestEETForm.FormShow(Sender: TObject);
@@ -363,22 +329,11 @@ end;
 
 procedure TTestEETForm.VerifyResponseCert(const ResponseCertInfo: TEETSignerCertInfo; var IsValidResponse: boolean);
 begin
-  IsValidResponse := True;
-  mmoLog.Lines.Add('ResponseCert : Subject ' + ResponseCertInfo.Subject);
-end;
-
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-function TTestEETForm.VerifyPeer(Certificate: TIdX509; AOk: Boolean{$IFNDEF LEGACY_RIO}; ADepth, AError: Integer{$ENDIF}): boolean;
-begin
-  Result := AOk;
-  {$IFNDEF LEGACY_RIO}
-  if ADepth = 0 then
+  IsValidResponse := true;
+  if GetCurrentThreadID = MainThreadID then
     begin
-      synmRequest.Lines.Add('<!-- https : Subject ' + Certificate.Subject.OneLine + ' -->');
-      mmoLog.Lines.Add('Https : Subject ' + Certificate.Subject.OneLine);
+      mmoLog.Lines.Add('ResponseCert : Subject ' + ResponseCertInfo.Subject + ', Common Name : ' + ResponseCertInfo.CommonName);
     end;
-  {$ENDIF}
 end;
-{$IFEND}
 
 end.

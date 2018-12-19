@@ -1,7 +1,7 @@
 // JCL_DEBUG_EXPERT_GENERATEJDBG OFF
 // JCL_DEBUG_EXPERT_INSERTJDBG OFF
 // JCL_DEBUG_EXPERT_DELETEMAPFILE OFF
-program TestEET;
+program TestEET_DX2;
 
 {$APPTYPE CONSOLE} // for debuging libxml
 
@@ -34,8 +34,7 @@ program TestEET;
 uses
   System.SimpleShareMem,
   Forms,
-  u_main in 'u_main.pas' {TestEETForm},
-  u_EETXMLSchema in '..\include\databinding\u_EETXMLSchema.pas';
+  u_main in '..\u_main.pas' {TestEETForm};
 
 {$R *.res}
 

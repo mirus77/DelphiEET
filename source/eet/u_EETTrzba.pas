@@ -1,236 +1,95 @@
 unit u_EETTrzba;
 
 interface
+
 {$IFNDEF UNICODE}
 {$DEFINE LEGACY_RIO}
 {$ENDIF}
+// For Delphi XE3 and up:
+{$IF CompilerVersion >= 24.0 }
+{$LEGACYIFEND ON}
+{$IFEND}
+
 uses
   Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, WebNode, {OpConvertOptions,} OPToSOAPDomConv, SOAPEnv,
-  {$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    IdHTTP, IdCookie, IdCookieManager, IdHeaderList, IdURI, IdComponent, IdSSLOpenSSL, IdSSLOpenSSLHeaders,
-  {$ELSE}
-     WinInet,
-  {$IFEND}
-  ActiveX, u_EETServiceSOAP, XMLDoc, XMLIntf, u_EETSigner;
+  SOAPHTTPTrans, WebNode, OPToSOAPDomConv, SOAPEnv, ActiveX, u_EETServiceSOAP, XMLDoc,
+  XMLIntf, u_EETSigner, u_EETHttpClient;
 
 type
   TEETTrzba = class;
 
-  TEETRIO = class(THTTPRIO)
-  private
-    FEET: TEETTrzba;
-  protected
-    {$IFDEF USE_INDY}
-    FIdCookieManager : TIdCookieManager;
-    IdSSLIOHandlerSocketOpenSSL1: TIdSSLIOHandlerSocketOpenSSL;
-    {$ENDIF}
-    procedure HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData: Pointer);
-    {$IFDEF LEGACY_RIO}
-    procedure HTTPRIO_BeforeExecute(const MethodName: string;
-      var SOAPRequest: InvString);
-    {$ELSE}
-    procedure HTTPRIO_BeforeExecute(const MethodName: string;
-      SOAPRequest: TStream);
-    {$ENDIF}
-    procedure HTTPRIO_AfterExecute(const MethodName: string;
-      SOAPResponse: TStream);
-    {$IFNDEF USE_INDY}
-    function DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
-    {$ENDIF}
-  public
-    constructor Create(AOwner: TComponent); override;
-    destructor Destroy; override;
-  published
-    property EET : TEETTrzba read FEET write FEET;
-  end;
-
-  TVerifyResponseEvent = procedure(const ResponseCertInfo : TEETSignerCertInfo; var IsValidResponse : boolean) of object;
+  TVerifyResponseEvent = procedure(const ResponseCertInfo: TEETSignerCertInfo; var IsValidResponse: boolean) of object;
 
   TEETTrzba = class(TComponent)
   private
-    FEETService : EET;
-{$IF Defined(USE_DIRECTINDY)}
-    FIdHttpClient : TIdHTTP;
-{$IFEND}
     FOnBeforeSendRequest: TBeforeExecuteEvent;
     FOnAfterSendRequest: TAfterExecuteEvent;
-    FConnectTimeout: Integer;
-    FReceiveTimeout: Integer;
-    FValidResponse: Boolean;
-    FSendTimeout: Integer;
+    FValidResponse: boolean;
     FErrorCode: Integer;
     FErrorMessage: string;
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    FOnVerifyPeer: TVerifyPeerEvent;
-{$IFEND}
-    FRootCertFile: string;
-    FHttpsTrustName: string;
-    FProxyPort: integer;
-    FProxyPassword: string;
-    FProxyHost: string;
-    FProxyUsername: string;
-    FUseProxy: boolean;
     FRequestStream: TMemoryStream;
     FResponseStream: TMemoryStream;
-    FValidResponseCert: Boolean;
+    FValidResponseCert: boolean;
     FOnVerifyResponseEvent: TVerifyResponseEvent;
   protected
     IsInitialized: boolean;
-    FSigner : TEETSigner;
-    FPFXStream : TMemoryStream;
-    FPFXPassword : string;
-    FCERTrustedList : TCERTrustedList;
-    function GetEETRIO : TEETRIO;
-    procedure SignMessage(SOAPRequest: TStream);
-    procedure ValidateResponse(SOAPResponse: TStream);
+    FSigner: TEETSigner;
     function EETDateTimeToXMLTime(Value: TDateTime): string;
 {$IFNDEF USE_LIBEET}
-    procedure InsertWsse(ParentNode : IXMLNode);
+    procedure InsertWsse(ParentNode: IXMLNode);
 {$ENDIF}
   public
     URL: string;
-    constructor Create(AOwner : TComponent); override;
+    constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Initialize;
     procedure Finalize;
-    function NewTrzba : Trzba;
-    function SignTrzba(const parameters: Trzba): Boolean;
-    function OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean = false; aTimeOut : Integer = 0): Odpoved;
-    {$IF Defined(USE_DIRECTINDY)}
-    function OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly : Boolean = false): Odpoved;
-    {$IFEND}
-    function HasVarovani(Odpoved : OdpovedType) : Boolean;
-    procedure SaveToXML(const parameters: Trzba; const DestStream : TStream);
-    procedure LoadFromXML(const parameters: Trzba; const SourceStream : TStream);
-    function AddTrustedCertFromFileName(const CerFileName: TFileName) : integer;
-    function AddTrustedCertFromStream(const CerStream: TStream) : integer;
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    function DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
-{$IFEND}
+    function NewRevenue: Trzba;
+    function SignRevenue(const parameters: Trzba): boolean;
+    function SendRevenue(aHttpClient: TEETHttpClient; const parameters: Trzba; SendOnly: boolean = false;
+      aTimeOut: Integer = 0): Odpoved;
+    function SendRevenueWithRIO(const parameters: Trzba; SendOnly: boolean = false; aTimeOut: Integer = 0): Odpoved;
+    function HasWarnings(Odpoved: OdpovedType): boolean;
+    procedure SaveToXML(const parameters: Trzba; const DestStream: TStream);
+    procedure LoadFromXML(parameters: Trzba; const SourceStream: TStream);
+    procedure SignRequest(SOAPRequest: TStream);
+    procedure ValidateResponse(SOAPResponse: TStream);
   published
-    property PFXStream : TMemoryStream read FPFXStream;
-    property PFXPassword : string read FPFXPassword write FPFXPassword;
-    property RootCertFile : string read FRootCertFile write FRootCertFile;
-    property HttpsTrustName : string read FHttpsTrustName write FHttpsTrustName;
-    property ConnectTimeout : Integer read FConnectTimeout write FConnectTimeout;
-    property SendTimeout : Integer read FSendTimeout write FSendTimeout;
-    property ReceiveTimeout : Integer read FReceiveTimeout write FReceiveTimeout;
-    property UseProxy : boolean read FUseProxy write FUseProxy;
-    property ProxyHost : string read FProxyHost write FProxyHost;
-    property ProxyPort : integer read FProxyPort write FProxyPort;
-    property ProxyUsername : string read FProxyUsername write FProxyUsername;
-    property ProxyPassword : string read FProxyPassword write FProxyPassword;
-    property ValidResponse : Boolean read FValidResponse;
-    property ValidResponseCert : Boolean read FValidResponseCert;
-    property ErrorCode : Integer read FErrorCode;
-    property ErrorMessage : string read FErrorMessage;
-    property OnBeforeSendRequest : TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
-    property OnAfterSendRequest : TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
-    property Signer : TEETSigner read FSigner;
-    property RequestStream : TMemoryStream read FRequestStream;
-    property ResponseStream : TMemoryStream read FResponseStream;
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-    property OnVerifyPeer : TVerifyPeerEvent read FOnVerifyPeer write FOnVerifyPeer;
-{$IFEND}
-    property OnVerifyResponse : TVerifyResponseEvent read FOnVerifyResponseEvent write FOnVerifyResponseEvent;
-  end;
-
-  TEETTrzbaThread = class(TThread)
-  private
-  public
-    ErrMessage : String;
-    ErrCode: Integer;
-    EET: EET;
-    EETOdpoved : Odpoved;
-    EETTrzba: Trzba;
-    procedure Execute; override;
+    property ValidResponse: boolean read FValidResponse;
+    property ValidResponseCert: boolean read FValidResponseCert;
+    property ErrorCode: Integer read FErrorCode;
+    property ErrorMessage: string read FErrorMessage;
+    property OnBeforeSendRequest: TBeforeExecuteEvent read FOnBeforeSendRequest write FOnBeforeSendRequest;
+    property OnAfterSendRequest: TAfterExecuteEvent read FOnAfterSendRequest write FOnAfterSendRequest;
+    property Signer: TEETSigner read FSigner;
+    property RequestStream: TMemoryStream read FRequestStream;
+    property ResponseStream: TMemoryStream read FResponseStream;
+    property OnVerifyResponse: TVerifyResponseEvent read FOnVerifyResponseEvent write FOnVerifyResponseEvent;
   end;
 
 implementation
 
-uses StrUtils,
+uses StrUtils, u_EETRIO,
 {$IFNDEF USE_LIBEET}
-   u_wsse, u_wsse_utils, u_xmldsigcoreschema, SOAPConst,
+  u_wsse, u_wsse_utils, u_xmldsigcoreschema, SOAPConst,
 {$ENDIF}
-   DateUtils{, TimeSpan};
-
-{$IFNDEF USE_INDY}
-function GetWinInetError(ErrorCode:Cardinal): string;
-const
-   winetdll = 'wininet.dll';
-var
-  Len: Integer;
-  Buffer: PChar;
-begin
-  Len := FormatMessage(
-  FORMAT_MESSAGE_FROM_HMODULE or FORMAT_MESSAGE_FROM_SYSTEM or
-  FORMAT_MESSAGE_ALLOCATE_BUFFER or FORMAT_MESSAGE_IGNORE_INSERTS or  FORMAT_MESSAGE_ARGUMENT_ARRAY,
-  Pointer(GetModuleHandle(winetdll)), ErrorCode, 0, @Buffer, SizeOf(Buffer), nil);
-  try
-    while (Len > 0) and {$IFDEF UNICODE}(CharInSet(Buffer[Len - 1], [#0..#32, '.'])) {$ELSE}(Buffer[Len - 1] in [#0..#32, '.']) {$ENDIF} do Dec(Len);
-    SetString(Result, Buffer, Len);
-  finally
-    LocalFree(HLOCAL(Buffer));
-  end;
-end;
-{$ENDIF}
-
-function TEETTrzba.AddTrustedCertFromFileName(const CerFileName: TFileName): integer;
-var
-  Stream : TMemoryStream;
-begin
-  Stream := TMemoryStream.Create;
-  Stream.LoadFromFile(CerFileName);
-  Result := FCERTrustedList.AddCert(Stream);
-end;
-
-function TEETTrzba.AddTrustedCertFromStream(const CerStream: TStream): integer;
-var
-  Stream : TMemoryStream;
-begin
-  Stream := TMemoryStream.Create;
-  Stream.LoadFromStream(CerStream);
-  Result := FCERTrustedList.AddCert(Stream);
-end;
+  DateUtils {, TimeSpan};
 
 constructor TEETTrzba.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  IsInitialized:=false;
+  IsInitialized := false;
   CoInitialize(nil);
-  FEETService := nil;
-{$IF Defined(USE_DIRECTINDY)}
-  FIdHttpClient := TIdHTTP.Create(nil);
-  FIdHttpClient.IOHandler := TIdSSLIOHandlerSocketOpenSSL.Create(FIdHttpClient);
-{$IFEND}
   FSigner := TEETSigner.Create(nil);
-  FPFXPassword := '';
-  FPFXStream := TMemoryStream.Create;
-  FCERTrustedList := TCERTrustedList.Create;
-  FHttpsTrustName := 'www.eet.cz';
-  FConnectTimeout := 2000;
-  FSendTimeout := 3000;
-  FReceiveTimeout := 3000;
-  FUseProxy := False;
-  FProxyHost := '';
-  FProxyPort := 3128;
-  FProxyUsername := '';
-  FProxyPassword := '';
   FRequestStream := TMemoryStream.Create;
   FResponseStream := TMemoryStream.Create;
 end;
 
 destructor TEETTrzba.Destroy;
 begin
-{$IF Defined(USE_DIRECTINDY)}
-  FIdHttpClient.Free;
-{$IFEND}
   FRequestStream.Free;
   FResponseStream.Free;
   FSigner.Free;
-  FCERTrustedList.Free;
-  FPFXStream.Free;
   CoUnInitialize;
   inherited;
 end;
@@ -238,181 +97,135 @@ end;
 function TEETTrzba.EETDateTimeToXMLTime(Value: TDateTime): string;
 
 const
-  Neg: array[Boolean] of string=  ('+', '-');
+  Neg: array [boolean] of string = ('+', '-');
 var
   Bias: Integer;
 
   // http://qc.embarcadero.com/wc/qcmain.aspx?d=43488
   // matches the relative standard or daylight date to a real date in a given year
-  function EncodeDayLightChange (Change : TSystemTime; const Year : Word) : TDateTime;
+  function EncodeDayLightChange(Change: TSystemTime; const Year: Word): TDateTime;
   begin
     // wDay indicates the nth occurance of the day specified in wDayOfWeek in the given month
     // wDayOfWeek indicates the day (0=sunday,  1=monday, ...,6=saturday)
     // delphi coding is             (7=sunday,  1=monday, ...,6=saturday)
-    with change do begin
-      if wDayOfWeek = 0 then wDayOfWeek := 7;
-      // Encoding the day of change (if wDay = 5 then try it and if needed decrement to find the last
-      // occurance of the day in this month)
-      while not TryEncodeDayOfWeekInMonth (Year, wMonth, wDay, wDayOfWeek, result) do begin
-        dec (wday); // we assume there are only 4 occurances of the given day
-        if wDay < 1 then // this is just to make sure it realy terminates
-          TryEncodeDayOfWeekInMonth (Year, wMonth, 1, 7, result)
+    with Change do
+      begin
+        if wDayOfWeek = 0 then
+          wDayOfWeek := 7;
+        // Encoding the day of change (if wDay = 5 then try it and if needed decrement to find the last
+        // occurance of the day in this month)
+        while not TryEncodeDayOfWeekInMonth(Year, wMonth, wDay, wDayOfWeek, result) do
+          begin
+            dec(wDay); // we assume there are only 4 occurances of the given day
+            if wDay < 1 then // this is just to make sure it realy terminates
+              TryEncodeDayOfWeekInMonth(Year, wMonth, 1, 7, result)
+          end;
+        // finally add the time when change is due
+        result := result + EncodeTime(wHour, wMinute, 0, 0);
       end;
-    // finally add the time when change is due
-    result := result + EncodeTime (wHour, wMinute, 0, 0);
-    end;
   end;
 
   function GetTimeZoneBias(const Date: TDateTime): Integer;
   var
-    TimeZoneInfo  : TTimeZoneInformation;
-    DayLightBegin : tDateTime;
-    DayLightEnd   : tDateTime;
-    Y,M,D         : Word;
+    TimeZoneInfo: TTimeZoneInformation;
+    DayLightBegin: TDateTime;
+    DayLightEnd: TDateTime;
+    Y, M, D: Word;
 
   begin
     case GetTimeZoneInformation(TimeZoneInfo) of
-      TIME_ZONE_ID_UNKNOWN: Result  := TimeZoneInfo.Bias;
-      TIME_ZONE_ID_STANDARD,
-      TIME_ZONE_ID_DAYLIGHT: begin
-                               Result := TimeZoneInfo.Bias;
-                               // is the time we want to convert in the daylight intervall ?
-                               DecodeDate(Date,Y,M,D);
-                               DayLightEnd   := EncodeDayLightChange (TimeZoneInfo.StandardDate, Y);
-                               DayLightBegin := EncodeDayLightChange (TimeZoneInfo.DaylightDate, Y);
-                               if (Date >= DayLightBegin) and (Date < DayLightEnd) then
-                                 Result := Result + TimeZoneInfo.DaylightBias;
-                              end;
+      TIME_ZONE_ID_UNKNOWN:
+        result := TimeZoneInfo.Bias;
+      TIME_ZONE_ID_STANDARD, TIME_ZONE_ID_DAYLIGHT:
+        begin
+          result := TimeZoneInfo.Bias;
+          // is the time we want to convert in the daylight intervall ?
+          DecodeDate(Date, Y, M, D);
+          DayLightEnd := EncodeDayLightChange(TimeZoneInfo.StandardDate, Y);
+          DayLightBegin := EncodeDayLightChange(TimeZoneInfo.DaylightDate, Y);
+          if (Date >= DayLightBegin) and (Date < DayLightEnd) then
+            result := result + TimeZoneInfo.DaylightBias;
+        end;
     else
-      Result := 0;
+      result := 0;
     end;
   end;
 
 begin
-  Result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
+  result := FormatDateTime('yyyy''-''mm''-''dd''T''hh'':''nn'':''ss''', Value); { Do not localize }
   Bias := GetTimeZoneBias(Value);
-  Result := Format('%s%s%.2d:%.2d', [Result, Neg[Bias > 0],                         { Do not localize }
-                                     Abs(Bias) div MinsPerHour,
-                                     Abs(Bias) mod MinsPerHour]);
+  result := Format('%s%s%.2d:%.2d', [result, Neg[Bias > 0], { Do not localize }
+    Abs(Bias) div MinsPerHour, Abs(Bias) mod MinsPerHour]);
 end;
-
 
 procedure TEETTrzba.Finalize;
 begin
-  if FSigner.Active then FSigner.Active := False;
-  FCERTrustedList.Clear;
-  IsInitialized := False;
+  if FSigner.Active then
+    FSigner.Active := false;
+  IsInitialized := false;
 end;
 
-{$IF Defined(USE_INDY) OR Defined(USE_DIRECTINDY)}
-function TEETTrzba.DoVerifyPeer(Certificate: TIdX509; AOk: Boolean; ADepth, AError: Integer): Boolean;
-var
-  TempList: TStringList;
-  Cn: String;
+function TEETTrzba.HasWarnings(Odpoved: OdpovedType): boolean;
 begin
-//  Result := AOk;
-
-  // check range validity
-  Result := CompareDateTime(Certificate.notBefore, Now) = CompareDateTime(Now, Certificate.notAfter);
-  if Result and (FHttpsTrustName <> '') and (ADepth = 0) then
-    begin
-      // check common name by HtttpTrustName
-      Cn := '';
-      TempList:= TStringList.Create;
-      try
-        TempList.Delimiter := '/';
-        TempList.DelimitedText := Certificate.Subject.OneLine;
-        Cn := Trim(TempList.Values['CN']);
-      finally
-        TempList.Free;
-      end;
-      Result := SameText(Cn, FHttpsTrustName)
-    end;
-  if Result and Assigned(FOnVerifyPeer) then Result := FOnVerifyPeer(Certificate, Result, ADepth, AError);
-end;
-{$IFEND}
-
-function TEETTrzba.GetEETRIO: TEETRIO;
-begin
-  Result := TEETRIO.Create(nil);
-  Result.EET := self;
-  Result.HTTPWebNode.ConnectTimeout := Self.ConnectTimeout;
-  Result.HTTPWebNode.SendTimeout := Self.SendTimeout;
-  Result.HTTPWebNode.ReceiveTimeout := Self.ReceiveTimeout;
-  if (FProxyHost <> '') and FUseProxy then
-    begin
-      if FProxyPort > 0 then
-        Result.HTTPWebNode.Proxy := Format('%s:%d',[FProxyHost, FProxyPort]) // 'server_ip:port'
-      else
-        Result.HTTPWebNode.Proxy := FProxyHost;
-      Result.HTTPWebNode.Username := FProxyUsername;
-      Result.HTTPWebNode.Password := FProxyPassword;
-    end;
-end;
-
-function TEETTrzba.HasVarovani(Odpoved: OdpovedType): Boolean;
-begin
-  Result := False;
-  if Odpoved = nil then exit;
-  Result := Length(Odpoved.Varovani) > 0;
+  result := false;
+  if Odpoved = nil then
+    exit;
+  result := Length(Odpoved.Varovani) > 0;
 end;
 
 procedure TEETTrzba.Initialize;
-var
-  I: Integer;
 begin
-  if IsInitialized then exit;
+  if IsInitialized then
+    exit;
 
-  if URL='' then
-      raise Exception.Create('SOAP URL není vyplnìna !!!');
+  if URL = '' then
+    raise Exception.Create('SOAP URL is empty !!!');
 
   if not FSigner.Active then
-    begin
-      if FPFXStream.Size > 0 then
-        FSigner.LoadPFXCertFromStream(FPFXStream,AnsiString(FPFXPassword));
-      for I := 0 to FCERTrustedList.Count - 1 do
-        FSigner.AddTrustedCertFromStream(FCERTrustedList.GetStream(I));
-      FSigner.Active := True;
-    end;
+    FSigner.Active := True;
 
-  IsInitialized:=true;
+  IsInitialized := True;
 end;
 
 {$IFNDEF USE_LIBEET}
+
 procedure TEETTrzba.InsertWsse(ParentNode: IXMLNode);
 var
-  SecHeader : IXMLSecurityHeaderType;
-  Signature : IXMLSignatureType;
-  SigReference : IXMLReferenceType;
-  SigTransForm : IXMLTransformType;
-  SecTokenReference : IXMLSecurityTokenReferenceType;
-  SecReference : u_wsse.IXMLReferenceType;
+  SecHeader: IXMLSecurityHeaderType;
+  Signature: IXMLSignatureType;
+  SigReference: IXMLReferenceType;
+  SigTransForm: IXMLTransformType;
+  SecTokenReference: IXMLSecurityTokenReferenceType;
+  SecReference: u_wsse.IXMLReferenceType;
 begin
   // Security
   SecHeader := NewSecurity;
-  SecHeader.OwnerDocument.Options := [doNodeAutoCreate];  // tohle zabrani pomalemu vytvareni ChildNodes.Add(???)
+  SecHeader.OwnerDocument.Options := [doNodeAutoCreate]; // speed optimization for ChildNodes.Add(???)
   SecHeader.Attributes['SOAP-ENV:mustUnderstand'] := '1';
-  SecHeader.BinarySecurityToken.EncodingType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
-  SecHeader.BinarySecurityToken.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
+  SecHeader.BinarySecurityToken.EncodingType :=
+    'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
+  SecHeader.BinarySecurityToken.ValueType :=
+    'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
   SecHeader.BinarySecurityToken.Attributes['wsu:Id'] := 'id-TheCert';
 
   // Signature
   Signature := NewSignature;
-  Signature.OwnerDocument.Options := [doNodeAutoCreate];
-  Signature.SignedInfo.CanonicalizationMethod.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
+  Signature.OwnerDocument.Options := [doNodeAutoCreate]; // speed optimization for ChildNodes.Add(???)
+  Signature.SignedInfo.CanonicalizationMethod.Algorithm := 'http://www.w3.org/2001/10/xml-exc-c14n#';
   Signature.Id := 'id-TheSignature';
-  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:= 'soap';
-  Signature.SignedInfo.SignatureMethod.Algorithm:='http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+  Signature.SignedInfo.CanonicalizationMethod.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#')
+    .Attributes['PrefixList'] := 'soap';
+  Signature.SignedInfo.SignatureMethod.Algorithm := 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
 
   SigReference := Signature.SignedInfo.Reference.Add;
-  SigReference.URI:='#id-TheBody';
+  SigReference.URI := '#id-TheBody';
 
   SigTransForm := SigReference.Transforms.Add;
-  SigTransForm.Algorithm:='http://www.w3.org/2001/10/xml-exc-c14n#';
-  SigTransForm.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList']:='';
+  SigTransForm.Algorithm := 'http://www.w3.org/2001/10/xml-exc-c14n#';
+  SigTransForm.AddChild('ec:InclusiveNamespaces', 'http://www.w3.org/2001/10/xml-exc-c14n#').Attributes['PrefixList'] := '';
 
-  SigReference.DigestMethod.Algorithm:='http://www.w3.org/2001/04/xmlenc#sha256';
-  SigReference.DigestValue:='';
+  SigReference.DigestMethod.Algorithm := 'http://www.w3.org/2001/04/xmlenc#sha256';
+  SigReference.DigestValue := '';
 
   Signature.SignatureValue.Text := '';
 
@@ -421,7 +234,7 @@ begin
   SecTokenReference.OwnerDocument.Options := [doNodeAutoCreate];
   SecTokenReference.Attributes['wsu:Id'] := 'id-TheSecurityTokenReference';
 
-  SecReference :=  NewReference;
+  SecReference := NewReference;
   SecReference.OwnerDocument.Options := [doNodeAutoCreate];
   SecReference.URI := '#id-TheCert';
   SecReference.ValueType := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
@@ -437,7 +250,7 @@ begin
 end;
 {$ENDIF}
 
-procedure TEETTrzba.LoadFromXML(const parameters: Trzba; const SourceStream: TStream);
+procedure TEETTrzba.LoadFromXML(parameters: Trzba; const SourceStream: TStream);
 var
   Converter: IObjConverter;
   NodeParent: IXMLNode;
@@ -448,188 +261,168 @@ begin
   XMLin := NewXMLDocument;
   XMLin.LoadFromStream(SourceStream);
 
-  NodeRoot:= XML.AddChild('Root');
-  NodeParent:= XMLin.DocumentElement;
+  NodeRoot := XML.AddChild('Root');
+  NodeParent := XMLin.DocumentElement;
 
-  Converter:= TSOAPDomConv.Create(NIL);
+  Converter := TSOAPDomConv.Create(NIL);
   parameters.SOAPToObject(NodeRoot, NodeParent, Converter);
 end;
 
-function TEETTrzba.NewTrzba: Trzba;
+function TEETTrzba.NewRevenue: Trzba;
 
   function Hexa(cislo: Integer): String;
-  var vrat: String;
   begin
-    vrat := IntToStr(cislo);
-    if cislo = 10 then vrat := 'a';
-    if cislo = 11 then vrat := 'b';
-    if cislo = 12 then vrat := 'c';
-    if cislo = 13 then vrat := 'd';
-    if cislo = 14 then vrat := 'e';
-    if cislo = 15 then vrat := 'f';
-    Hexa := vrat;
+    result := IntToStr(cislo);
+    if cislo = 10 then
+      result := 'a';
+    if cislo = 11 then
+      result := 'b';
+    if cislo = 12 then
+      result := 'c';
+    if cislo = 13 then
+      result := 'd';
+    if cislo = 14 then
+      result := 'e';
+    if cislo = 15 then
+      result := 'f';
   end;
 
-  function NewGuid : string;
-  var I : Integer;
+  function NewGuid: string;
+  var
+    I: Integer;
   begin
-    Result := '';
-    for I := 1 to 8 do Result := Result + Hexa(Round(Int(Random(16))));
-    Result := Result + '-';
-    for I := 1 to 4 do Result := Result + Hexa(Round(Int(Random(16))));
-    Result := Result + '-4';
-    for I := 1 to 3 do Result := Result + Hexa(Round(Int(Random(16))));
-    Result := Result + '-';
-    Result := Result + Hexa(8 + Round(Int(Random(4))));
-    for I := 1 to 3 do Result := Result + Hexa(Round(Int(Random(16))));
-    Result := Result + '-';
-    for I := 1 to 12 do Result := Result + Hexa(Round(Int(Random(16))));
+    result := '';
+    for I := 1 to 8 do
+      result := result + Hexa(Round(Int(Random(16))));
+    result := result + '-';
+    for I := 1 to 4 do
+      result := result + Hexa(Round(Int(Random(16))));
+    result := result + '-4';
+    for I := 1 to 3 do
+      result := result + Hexa(Round(Int(Random(16))));
+    result := result + '-';
+    result := result + Hexa(8 + Round(Int(Random(4))));
+    for I := 1 to 3 do
+      result := result + Hexa(Round(Int(Random(16))));
+    result := result + '-';
+    for I := 1 to 12 do
+      result := result + Hexa(Round(Int(Random(16))));
   end;
+
 begin
-  Result := Trzba.Create;
-  Result.Hlavicka := TrzbaHlavickaType.Create;
-  Result.Hlavicka.uuid_zpravy := NewGuid;
-//  Result.Hlavicka.uuid_zpravy := TGuid.NewGuid.ToString;
-//  Result.Hlavicka.uuid_zpravy := LowerCase(Copy(Result.Hlavicka.uuid_zpravy, 2, Length(Result.Hlavicka.uuid_zpravy)-2));
+  result := Trzba.Create;
+  result.Hlavicka := TrzbaHlavickaType.Create;
+  result.Hlavicka.uuid_zpravy := NewGuid;
+  // Result.Hlavicka.uuid_zpravy := TGuid.NewGuid.ToString;
+  // Result.Hlavicka.uuid_zpravy := LowerCase(Copy(Result.Hlavicka.uuid_zpravy, 2, Length(Result.Hlavicka.uuid_zpravy)-2));
 
-  Result.Hlavicka.dat_odesl := dateTime.Create;
-  Result.Hlavicka.dat_odesl.UseZeroMilliseconds := false;
+  result.Hlavicka.dat_odesl := dateTime.Create;
+  result.Hlavicka.dat_odesl.UseZeroMilliseconds := false;
 
+  result.Hlavicka.prvni_zaslani := True;
+  result.Hlavicka.overeni := false;
 
-  Result.Hlavicka.prvni_zaslani := True;
-  Result.Hlavicka.overeni := False;
+  result.Hlavicka.dat_odesl.AsDateTime := now;
 
-  Result.Hlavicka.dat_odesl.AsDateTime := now;
-
-  Result.Data := TrzbaDataType.Create;
-  Result.Data.dat_trzby := dateTime.Create;
-  Result.Data.dat_trzby.UseZeroMilliseconds := false;
-//  Result.Data.celk_trzba := CastkaType.Create;
-//  Result.Data.cerp_zuct := CastkaType.Create;
-//  Result.Data.cest_sluz := CastkaType.Create;
-//  Result.Data.dan1 := CastkaType.Create;
-//  Result.Data.dan2 := CastkaType.Create;
-//  Result.Data.dan3 := CastkaType.Create;
-//  Result.Data.pouzit_zboz1 := CastkaType.Create;
-//  Result.Data.pouzit_zboz2 := CastkaType.Create;
-//  Result.Data.pouzit_zboz3 := CastkaType.Create;
-//  Result.Data.urceno_cerp_zuct := CastkaType.Create;
-//  Result.Data.zakl_dan1 := CastkaType.Create;
-//  Result.Data.zakl_dan2 := CastkaType.Create;
-//  Result.Data.zakl_dan3 := CastkaType.Create;
-//  Result.Data.zakl_nepodl_dph := CastkaType.Create;
+  result.Data := TrzbaDataType.Create;
+  result.Data.dat_trzby := dateTime.Create;
+  result.Data.dat_trzby.UseZeroMilliseconds := false;
+  // Result.Data.celk_trzba := CastkaType.Create;
+  // Result.Data.cerp_zuct := CastkaType.Create;
+  // Result.Data.cest_sluz := CastkaType.Create;
+  // Result.Data.dan1 := CastkaType.Create;
+  // Result.Data.dan2 := CastkaType.Create;
+  // Result.Data.dan3 := CastkaType.Create;
+  // Result.Data.pouzit_zboz1 := CastkaType.Create;
+  // Result.Data.pouzit_zboz2 := CastkaType.Create;
+  // Result.Data.pouzit_zboz3 := CastkaType.Create;
+  // Result.Data.urceno_cerp_zuct := CastkaType.Create;
+  // Result.Data.zakl_dan1 := CastkaType.Create;
+  // Result.Data.zakl_dan2 := CastkaType.Create;
+  // Result.Data.zakl_dan3 := CastkaType.Create;
+  // Result.Data.zakl_nepodl_dph := CastkaType.Create;
 
   // KontrolniKody prepare
-  Result.KontrolniKody := TrzbaKontrolniKodyType.Create;
-  Result.KontrolniKody.pkp := PkpElementType.Create;
-  Result.KontrolniKody.bkp := BkpElementType.Create;
+  result.KontrolniKody := TrzbaKontrolniKodyType.Create;
+  result.KontrolniKody.pkp := PkpElementType.Create;
+  result.KontrolniKody.bkp := BkpElementType.Create;
 end;
 
-function TEETTrzba.OdeslaniTrzby(const parameters: Trzba; SendOnly : Boolean; aTimeOut : Integer): Odpoved;
+function TEETTrzba.SendRevenue(aHttpClient: TEETHttpClient; const parameters: Trzba; SendOnly: boolean;
+  aTimeOut: Integer): Odpoved;
 var
-  Service : EET;
-  TT : TEETTrzbaThread;
+  SOAPRequest, SOAPResponse: TMemoryStream;
+  TT: TEETTrzbaThread;
   h: tHandle;
   WaitResult: DWORD;
-  Tmp : Cardinal;
-begin
-  FValidResponse := True;
-  FValidResponseCert := True;
-  FErrorCode := 0;
-  FErrorMessage := '';
-  Result := nil;
+  Tmp: Cardinal;
 
-  Service := GetEET(False, URL, GetEETRIO);
-
-  // milisecond in output correction
-  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
-  if not SendOnly then
-    SignTrzba(parameters);
-
-  try
-    if aTimeOut <> 0 then
-      begin
-          TT := TEETTrzbaThread.Create(True);
-          try
-            TT.FreeOnTerminate := False;
-            TT.EET := Service;
-            TT.EETTrzba := parameters;
-            h := TT.Handle;
-            {$IFDEF LEGACY_RIO}
-            TT.Resume;
-            {$ELSE}
-            TT.Start;
-            {$ENDIF}
-            if aTimeOut < 0 then
-              WaitResult := WaitForSingleObject(h, Windows.INFINITE)
-            else
-              WaitResult := WaitForSingleObject(h, aTimeOut);
-            case WaitResult of
-              WAIT_OBJECT_0:
-                 begin
-                   // Thread dobìhl vèas, výsledky jsou validní, zpracovat je
-                   FErrorCode := TT.ErrCode;
-                   FErrorMessage := TT.ErrMessage;
-                   Result := TT.EETOdpoved;
-                 end;
-            else
-              begin
-                // Thread ještì nedobìhl
-                if GetHandleInformation(h, Tmp) then
-                  TT.Terminate; // signalizujeme, že s ním konèíme, ale je ttt stale validni?
-                if WaitResult = WAIT_TIMEOUT then
-                  begin
-                    FErrorCode := -2;
-                    FErrorMessage := 'Send timeout expired !!!';
-                  end
-                else
-                  begin
-                    // volání ve vláknì selhalo, ošetøit..
-                    FErrorCode := -2;
-                    FErrorMessage := 'Send timeout expired !!!';
-                  end;
-              end;
-            end; // Case
-          finally
-            TT.Free;
-          end;
-      end
-    else
-      Result := Service.OdeslaniTrzby(parameters); { invoke the service }
-  except
-    on E:Exception do
-      begin
-        FErrorCode := -3;
-        FErrorMessage := E.Message;
-      end;
-  end;
-end;
-
-{$IF Defined(USE_DIRECTINDY)}
-function TEETTrzba.OdeslaniTrzbyDirectIndy(const parameters: Trzba; SendOnly: Boolean): Odpoved;
-var
-  SoapRequest, SOAPResponse : TMemoryStream;
 {$IFNDEF USE_LIBEET}
-  DocTrzba : IXMLDocument;
-  Service : EET;
-  SoapEnv : TSoapEnvelope;
-  Doc : IXMLDocument;
-  HeaderNode : IXMLNode;
+  DocTrzba: IXMLDocument;
+  aSOAPEnv: TSoapEnvelope;
+  Doc: IXMLDocument;
+  HeaderNode: IXMLNode;
 {$ENDIF}
-  EnvNode, BodyNode, OdpovedNode : IXMLNode;
+  EnvNode, BodyNode, OdpovedNode: IXMLNode;
 
-  procedure ParseOdpoved;
+  procedure GenerateRequest;
+  begin
+{$IFNDEF USE_LIBEET}
+    DocTrzba := NewXMLDocument;
+    aSOAPEnv := TSoapEnvelope.Create;
+    Doc := NewXMLDocument;
+    try
+      Doc.Options := [doNodeAutoCreate];
+      DocTrzba.Options := [doNodeAutoCreate];
+{$ENDIF}
+      if not SendOnly then
+        SignRevenue(parameters);
+      SOAPRequest.Clear;
+      SaveToXML(parameters, SOAPRequest);
+      SOAPRequest.Position := 0;
+
+{$IFNDEF USE_LIBEET}
+      { * Make SOAP Envelope with DocTrzba body - BEGIN * }
+      DocTrzba.LoadFromStream(SOAPRequest);
+      EnvNode := aSOAPEnv.MakeEnvelope(Doc, []);
+      HeaderNode := aSOAPEnv.MakeHeader(EnvNode, []);
+      BodyNode := aSOAPEnv.MakeBody(EnvNode, []);
+      BodyNode.ChildNodes.Add(DocTrzba.DocumentElement);
+      SOAPRequest.Clear;
+      Doc.SaveToStream(SOAPRequest);
+      BodyNode := nil;
+      HeaderNode := nil;
+      EnvNode := nil;
+      { * Make SOAP Envelope with DocTrzba body - END* }
+{$ENDIF}
+      { * Sign SOAP Envelope with customer certificate* }
+      SignRequest(SOAPRequest);
+
+      { * Copy Request to public property * }
+      RequestStream.Clear;
+      SOAPRequest.Position := 0;
+      RequestStream.CopyFrom(SOAPRequest, SOAPRequest.Size - SOAPRequest.Position);
+
+{$IFNDEF USE_LIBEET}
+    finally
+      aSOAPEnv.Free;
+      Doc := nil;
+      DocTrzba := nil;
+    end;
+{$ENDIF}
+  end;
+
+  procedure ParseResponse;
   var
     Converter: IObjConverter;
     XMLin: IXMLDocument;
   begin
     XMLin := NewXMLDocument;
+    SOAPResponse.Position := 0;
     XMLin.LoadFromStream(SOAPResponse);
     EnvNode := XMLin.DocumentElement;
-    OdpovedNode := nil;
-    BodyNode := nil;
+    OdpovedNode := nil; // init
+    BodyNode := nil; // init
     if EnvNode <> nil then
       BodyNode := EnvNode.ChildNodes.FindNode('Body');
     if BodyNode <> nil then
@@ -637,108 +430,216 @@ var
 
     if OdpovedNode <> nil then
       begin
-        Converter:= TSOAPDomConv.Create(NIL);
-        if Result = nil then Result := Odpoved.Create;
-        Result.SOAPToObject(EnvNode, OdpovedNode, Converter);
+        Converter := TSOAPDomConv.Create(NIL);
+        if result = nil then
+          result := Odpoved.Create;
+        result.SOAPToObject(EnvNode, OdpovedNode, Converter);
       end;
   end;
+
 begin
+  Assert(aHttpClient <> nil, 'EETHttpClient is not defined');
   FValidResponse := True;
-  FValidResponse := True;
+  FValidResponseCert := True;
   FErrorCode := 0;
   FErrorMessage := '';
-  Result := nil;
+  result := nil;
 
-  FIdHttpClient.HandleRedirects := True;
-  FIdHttpClient.ConnectTimeout := FConnectTimeout;
-  FIdHttpClient.HTTPOptions := FIdHttpClient.HTTPOptions + [hoKeepOrigProtocol];
-  if FIdHttpClient.IOHandler is TIdSSLIOHandlerSocketOpenSSL then
-    begin
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).Port := 0;
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).DefaultPort := 0;
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.Method := sslvTLSv1_2;
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.SSLVersions := [sslvTLSv1_2];
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.Mode := sslmClient;
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyMode := [];
-      TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyDepth := 0;
-      if FRootCertFile <> '' then
+  // milisecond in output correction
+  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+
+  SOAPRequest := TMemoryStream.Create;
+  SOAPResponse := TMemoryStream.Create;
+  try
+    try
+      GenerateRequest;
+{$IFNDEF LEGACY_RIO}
+      if Assigned(FOnBeforeSendRequest) then
+        FOnBeforeSendRequest('OdeslatTrzbu', SOAPRequest);
+{$ENDIF}
+      try
+        if aTimeOut <> 0 then
+          begin
+            TT := TEETTrzbaThread.Create(True);
+            try
+              TT.FreeOnTerminate := false;
+              TT.URL := URL;
+              TT.HttpClient := aHttpClient;
+              TT.LoadRequestFromStream(SOAPRequest);
+              h := TT.Handle;
+{$IFDEF LEGACY_RIO}
+              TT.Resume;
+{$ELSE}
+              TT.Start;
+{$ENDIF}
+              if aTimeOut < 0 then
+                WaitResult := WaitForSingleObject(h, Windows.INFINITE)
+              else
+                WaitResult := WaitForSingleObject(h, aTimeOut);
+              case WaitResult of
+                WAIT_OBJECT_0:
+                  begin
+                    // Thread arrived in time, response is valid
+                    FErrorCode := TT.ErrCode;
+                    FErrorMessage := TT.ErrMessage;
+                    SOAPResponse.Clear;
+                    TT.SaveResponseToStream(SOAPResponse);
+                  end;
+              else
+                begin
+                  // Thread still running
+                  if GetHandleInformation(h, Tmp) then
+                    TT.Terminate; // Thread handle still valid, we signal termination?
+                  if WaitResult = WAIT_TIMEOUT then
+                    begin
+                      FErrorCode := -2;
+                      FErrorMessage := 'Send timeout expired !!!';
+                    end
+                  else
+                    begin
+                      // calling in the Thread has failed
+                      FErrorCode := -2;
+                      FErrorMessage := 'Send timeout expired !!!';
+                    end;
+                end;
+              end; // Case
+            finally
+              TT.Free;
+            end;
+          end
+        else
+          begin
+            aHttpClient.SendRequest(URL, SOAPRequest, SOAPResponse);
+          end;
+
+        if FErrorCode = 0 then
+          begin
+            { * copy response to public property * }
+            SOAPResponse.Position := 0;
+            FResponseStream.Clear;
+            FResponseStream.CopyFrom(SOAPResponse, SOAPResponse.Size);
+
+            { * check SOAP response for valid XML signature* }
+            ValidateResponse(SOAPResponse);
+
+            { * parse response to result object if response XML is Valid * }
+            if FValidResponse then
+              ParseResponse;
+
+            { * custom actions on the request * }
+            SOAPResponse.Position := 0;
+            if Assigned(FOnAfterSendRequest) then
+              FOnAfterSendRequest('OdeslatTrbu', SOAPResponse);
+          end;
+
+      except
+        on E: Exception do
+          begin
+            // error in sending request and parsing response
+            FErrorCode := -3;
+            FErrorMessage := '[' + E.ClassName + '] ' + E.Message;
+          end;
+      end;
+
+    except
+      on E: Exception do
         begin
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.RootCertFile := FRootCertFile;
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyMode := [sslvrfPeer];
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyDepth := 2;
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).OnVerifyPeer := DoVerifyPeer;
+          // error in generaterequest
+          FErrorCode := -1;
+          FErrorMessage := E.Message;
         end;
     end;
-
-{$IFNDEF USE_LIBEET}
-  DocTrzba := NewXMLDocument;
-  Service := GetEET(False, URL, GetEETRIO);
-  SoapEnv := TSoapEnvelope.Create;
-  Doc := NewXMLDocument;
-  try
-      Doc.Options := [doNodeAutoCreate];
-      DocTrzba.Options := [doNodeAutoCreate];
-{$ENDIF}
-     if not SendOnly then SignTrzba(parameters);
-
-      SoapRequest := TMemoryStream.Create;
-      SoapResponse := TMemoryStream.Create;
-      try
-        try
-          SoapRequest.Clear;
-          SaveToXML(parameters, SoapRequest);
-          SoapRequest.Seek(0, soFromBeginning);
-{$IFNDEF USE_LIBEET}
-          DocTrzba.LoadFromStream(SoapRequest);
-          EnvNode := SoapEnv.MakeEnvelope(Doc, []);
-          HeaderNode := SoapEnv.MakeHeader(EnvNode, []);
-          BodyNode := SoapEnv.MakeBody(EnvNode, []);
-          BodyNode.ChildNodes.Add(DocTrzba.DocumentElement);
-          SoapRequest.Clear;
-          Doc.SaveToStream(SoapRequest);
-          BodyNode := nil;
-          HeaderNode := nil;
-          EnvNode := nil;
-{$ENDIF}
-          SoapRequest.Seek(0, soFromBeginning);
-          SignMessage(SoapRequest);
-          SoapRequest.Seek(0, soFromBeginning);
-          RequestStream.Clear;
-          RequestStream.CopyFrom(SoapRequest, SoapRequest.Size);
-          if Assigned(FOnBeforeSendRequest) then FOnBeforeSendRequest('OdeslatTrzbu', SOAPRequest);
-
-          FIdHttpClient.Post(URL, SoapRequest, SOAPResponse);
-
-          SOAPResponse.Seek(0, soFromBeginning);
-          ResponseStream.Clear;
-          ResponseStream.CopyFrom(SOAPResponse, SOAPResponse.Size);
-
-          SoapResponse.Seek(0, soFromBeginning);
-          if Assigned(FOnAfterSendRequest) then FOnAfterSendRequest('OdeslatTrbu', SOAPResponse);
-          ValidateResponse(SOAPResponse);
-
-          SOAPResponse.Seek(0, soFromBeginning);
-          ParseOdpoved;
-        except
-          on E:Exception do
-            begin
-              FErrorCode := -1;
-              FErrorMessage := E.Message;
-            end;
-        end;
-      finally
-        SoapRequest.Free;
-        SOAPResponse.Free;
-      end;
-{$IFNDEF USE_LIBEET}
-   finally
-     SoapEnv.Free;
-     Doc := nil;
-     DocTrzba := nil;
-   end;
-{$ENDIF}
+  finally
+    SOAPRequest.Free;
+    SOAPResponse.Free;
+  end;
 end;
-{$IFEND}
+
+function TEETTrzba.SendRevenueWithRIO(const parameters: Trzba; SendOnly: boolean; aTimeOut: Integer): Odpoved;
+var
+  TT: TEETTrzbaRIOThread;
+  Service: EET;
+  h: tHandle;
+  WaitResult: DWORD;
+  Tmp: Cardinal;
+
+begin
+  FValidResponse := True;
+  FValidResponseCert := True;
+  FErrorCode := 0;
+  FErrorMessage := '';
+  result := nil;
+
+  Service := GetEET(false, URL, GetEETRIO(self));
+
+  // milisecond in output correction
+  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+
+  if not SendOnly then
+    SignRevenue(parameters);
+
+  try
+    if aTimeOut <> 0 then
+      begin
+        TT := TEETTrzbaRIOThread.Create(True);
+        try
+          TT.FreeOnTerminate := false;
+          TT.EET := Service;
+          TT.EETTrzba := parameters;
+          h := TT.Handle;
+{$IFDEF LEGACY_RIO}
+          TT.Resume;
+{$ELSE}
+          TT.Start;
+{$ENDIF}
+          if aTimeOut < 0 then
+            WaitResult := WaitForSingleObject(h, Windows.INFINITE)
+          else
+            WaitResult := WaitForSingleObject(h, aTimeOut);
+          case WaitResult of
+            WAIT_OBJECT_0:
+              begin
+                // Thread arrived in time, response is valid
+                FErrorCode := TT.ErrCode;
+                FErrorMessage := TT.ErrMessage;
+                result := TT.EETOdpoved;
+              end;
+          else
+            begin
+              // Thread still running
+              if GetHandleInformation(h, Tmp) then
+                TT.Terminate; // Thread handle still valid, we signal termination?
+              if WaitResult = WAIT_TIMEOUT then
+                begin
+                  FErrorCode := -2;
+                  FErrorMessage := 'Send timeout expired !!!';
+                end
+              else
+                begin
+                  // calling in the Thread has failed
+                  FErrorCode := -2;
+                  FErrorMessage := 'Send timeout expired !!!';
+                end;
+            end;
+          end; // Case
+        finally
+          TT.Free;
+        end;
+      end
+    else
+      result := Service.OdeslaniTrzby(parameters); { invoke the service }
+
+  except
+    on E: Exception do
+      begin
+        // error in sending request and parsing response
+        FErrorCode := -3;
+        FErrorMessage := E.Message;
+      end;
+  end;
+end;
 
 procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
 var
@@ -749,17 +650,18 @@ var
   XMLStr: {$IFDEF LEGACY_RIO}InvString{$ELSE}String{$ENDIF};
   XMLAnsiStr: AnsiString;
 begin
-  XML:= TXMLDocument.Create(nil);
-  Converter:= TSOAPDomConv.Create(NIL);
+  XML := TXMLDocument.Create(nil);
+  Converter := TSOAPDomConv.Create(NIL);
   try
     XML.Active := True;
     XML.Options := [doNodeAutoCreate];
     XML.Encoding := 'utf-8';
-    NodeRoot:= XML.CreateNode('Root');
-    NodeObject:= parameters.ObjectToSOAP(NodeRoot, NodeRoot, Converter, 'Trzba', '', {$IFNDEF LEGACY_RIO} '',{$ENDIF} [ocoDontPrefixNode, ocoDontPutTypeAttr], XMLStr);
+    NodeRoot := XML.CreateNode('Root');
+    NodeObject := parameters.ObjectToSOAP(NodeRoot, NodeRoot, Converter, 'Trzba', '', {$IFNDEF LEGACY_RIO} '',
+{$ENDIF} [ocoDontPrefixNode, ocoDontPutTypeAttr], XMLStr);
     NodeObject.Attributes['xmlns'] := FISKXML_TNSSCHEMA_URI;
     XMLAnsiStr := AnsiString(NodeObject.XML);
-    XML.Active := False;
+    XML.Active := false;
     XMLAnsiStr := AnsiString(AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', ''));
     DestStream.WriteBuffer(Pointer(XMLAnsiStr)^, Length(XMLAnsiStr) * SizeOf(XMLAnsiStr[1]));
   finally
@@ -767,38 +669,33 @@ begin
   end;
 end;
 
-procedure TEETTrzba.SignMessage(SOAPRequest: TStream);
-var
+procedure TEETTrzba.SignRequest(SOAPRequest: TStream);
 {$IFNDEF USE_LIBEET}
-  xmlDoc, xmlDocTemp : IXMLDocument;
-  iNode : IXMLNode;
+var
+  XMLDoc, xmlDocTemp: IXMLDocument;
+  iNode: IXMLNode;
 {$ENDIF}
-  I : integer;
 begin
   if not FSigner.Active then
-    begin
-      if FPFXStream.Size > 0 then
-        FSigner.LoadPFXCertFromStream(FPFXStream,AnsiString(FPFXPassword));
-      for I := 0 to FCERTrustedList.Count - 1 do
-        FSigner.AddTrustedCertFromStream(FCERTrustedList.GetStream(I));
-      FSigner.Active := True;
-    end;
+    FSigner.Active := True;
+
+  (SOAPRequest as TMemoryStream).Position := 0;
 
 {$IFNDEF USE_LIBEET}
   xmlDocTemp := NewXMLDocument;
-  xmlDocTemp.Options  := [];
+  xmlDocTemp.Options := [];
   xmlDocTemp.LoadFromStream(SOAPRequest as TMemoryStream);
 
-  xmlDoc := NewXMLDocument;
-  xmlDoc.Options  := [];
-  iNode := xmlDoc.AddChild('soap:Envelope');
+  XMLDoc := NewXMLDocument;
+  XMLDoc.Options := [];
+  iNode := XMLDoc.AddChild('soap:Envelope');
   iNode.DeclareNamespace('soap', 'http://schemas.xmlsoap.org/soap/envelope/');
   iNode.Attributes['xmlns:wsu'] := 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
   iNode.AddChild(SSoapNameSpacePre + ':Header', 'http://schemas.xmlsoap.org/soap/envelope/');
   iNode := iNode.AddChild('soap:Body');
   iNode.ChildNodes.Add(xmlDocTemp.DocumentElement.ChildNodes.FindNode(SSoapNameSpacePre + ':Body').ChildNodes[0]);
 
-  iNode :=  xmlDoc.ChildNodes.FindNode('soap:Envelope');
+  iNode := XMLDoc.ChildNodes.FindNode('soap:Envelope');
   if iNode <> nil then
     begin
       iNode := iNode.ChildNodes.FindNode('soap:Body');
@@ -807,44 +704,49 @@ begin
           iNode.Attributes['wsu:Id'] := 'id-TheBody';
         end;
     end;
-  iNode :=  xmlDoc.ChildNodes.FindNode('soap:Envelope');
+  iNode := XMLDoc.ChildNodes.FindNode('soap:Envelope');
   if iNode <> nil then
     begin
-      iNode := iNode.ChildNodes.FindNode( SSoapNameSpacePre + ':Header');
+      iNode := iNode.ChildNodes.FindNode(SSoapNameSpacePre + ':Header');
       if iNode <> nil then
         begin
           InsertWsse(iNode);
-          iNode := iNode.ChildNodes.FindNode('wsse:Security', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
+          iNode := iNode.ChildNodes.FindNode('wsse:Security',
+            'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
           if iNode <> nil then
             begin
-              iNode := iNode.ChildNodes.FindNode('wsse:BinarySecurityToken', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
+              iNode := iNode.ChildNodes.FindNode('wsse:BinarySecurityToken',
+                'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
               if iNode <> nil then
                 iNode.Text := string(FSigner.GetRawCertDataAsBase64String);
             end;
         end;
     end;
   (SOAPRequest as TMemoryStream).Clear;
-  xmlDoc.SaveToStream(SOAPRequest as TMemoryStream);
+  XMLDoc.SaveToStream(SOAPRequest as TMemoryStream);
 {$ENDIF}
-
   FSigner.SignXML(SOAPRequest as TMemoryStream);
 end;
 
-function TEETTrzba.SignTrzba(const parameters: Trzba): Boolean;
+function TEETTrzba.SignRevenue(const parameters: Trzba): boolean;
 var
-  sPKPData : string;
+  sPKPData: string;
 begin
-  Result := False;
-  if not IsInitialized then exit;
+  result := false;
+  if not IsInitialized then
+    exit;
 
   // milisecond in output correction
   parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
   parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
 
-  // KontrolniKody prepare
-  if parameters.KontrolniKody = nil then  parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
-  if parameters.KontrolniKody.pkp = nil then parameters.KontrolniKody.pkp := PkpElementType.Create;
-  if parameters.KontrolniKody.bkp = nil then parameters.KontrolniKody.bkp := BkpElementType.Create;
+  // prepare element KontrolniKody
+  if parameters.KontrolniKody = nil then
+    parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
+  if parameters.KontrolniKody.pkp = nil then
+    parameters.KontrolniKody.pkp := PkpElementType.Create;
+  if parameters.KontrolniKody.bkp = nil then
+    parameters.KontrolniKody.bkp := BkpElementType.Create;
 
   parameters.KontrolniKody.pkp.Text := '';
   parameters.KontrolniKody.bkp.Text := '';
@@ -858,18 +760,18 @@ begin
   sPKPData := sPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
   sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
 
-  // generovat PKP
+  // generate PKP
   parameters.KontrolniKody.pkp.Text := FSigner.MakePKP(sPKPData);
-  // generovat BKP
+  // generate BKP
   parameters.KontrolniKody.bkp.Text := FSigner.MakeBKP(sPKPData);
 
-  Result := parameters.KontrolniKody.pkp.Text <> ''
+  result := parameters.KontrolniKody.pkp.Text <> '';
 end;
 
 procedure TEETTrzba.ValidateResponse(SOAPResponse: TStream);
 begin
-  FValidResponse := False;
-  FValidResponseCert := False;
+  FValidResponse := false;
+  FValidResponseCert := false;
 
   FValidResponse := FSigner.VerifyXML(SOAPResponse as TMemoryStream, 'Body', 'Id');
 
@@ -881,149 +783,8 @@ begin
     end;
 end;
 
-{ TEETRIO }
-
-constructor TEETRIO.Create(AOwner: TComponent);
-begin
-  inherited Create(AOwner);
-  {$IFDEF USE_INDY}
-  IdSSLIOHandlerSocketOpenSSL1 := TIdSSLIOHandlerSocketOpenSSL.Create(self);
-  IdSSLIOHandlerSocketOpenSSL1.Port := 0;
-  IdSSLIOHandlerSocketOpenSSL1.DefaultPort := 0;
-  IdSSLIOHandlerSocketOpenSSL1.SSLOptions.Method := sslvTLSv1_2;
-  IdSSLIOHandlerSocketOpenSSL1.SSLOptions.SSLVersions := [sslvTLSv1_2];
-  IdSSLIOHandlerSocketOpenSSL1.SSLOptions.Mode := sslmClient;
-  IdSSLIOHandlerSocketOpenSSL1.SSLOptions.VerifyMode := [];
-  IdSSLIOHandlerSocketOpenSSL1.SSLOptions.VerifyDepth := 0;
-  HTTPWebNode.IOHandler := IdSSLIOHandlerSocketOpenSSL1;
-  {$ELSE}
-    {$IFNDEF LEGACY_RIO}
-      HTTPWebNode.OnWinInetError := DoOnWinInetError;
-      HTTPWebNode.InvokeOptions := HTTPWebNode.InvokeOptions - [soIgnoreInvalidCerts];
-    {$ENDIF}
-  {$ENDIF}
-
-  {$IFNDEF LEGACY_RIO}
-  HTTPWebNode.WebNodeOptions := [];
-  {$ENDIF}
-
-  HTTPWebNode.OnBeforePost := HTTPWebNode_BeforePost;
-  OnBeforeExecute := HTTPRIO_BeforeExecute;
-  OnAfterExecute := HTTPRIO_AfterExecute;
-end;
-
-destructor TEETRIO.Destroy;
-begin
-  inherited;
-end;
-
-{$IFNDEF USE_INDY}
-function TEETRIO.DoOnWinInetError(LastError: DWord; Request: Pointer): DWord;
-begin
-  if LastError <> ERROR_SUCCESS then
-    raise Exception.Create(GetWinInetError(LastError));
-  Result := ERROR_SUCCESS;
-end;
-{$ENDIF}
-
-procedure TEETRIO.HTTPRIO_AfterExecute(const MethodName: string; SOAPResponse: TStream);
-begin
-  SOAPResponse.Position:=0;
-  if Assigned(FEET) then
-    begin
-      FEET.ResponseStream.Clear;
-      FEET.ResponseStream.CopyFrom(SOAPResponse, SOAPResponse.Size);
-      SOAPResponse.Position:=0;
-      if Assigned(FEET.OnAfterSendRequest) then FEET.OnAfterSendRequest(MethodName, SOAPResponse);
-      FEET.ValidateResponse(SOAPResponse);
-    end;
-end;
-
-{$IFDEF LEGACY_RIO}
-procedure TEETRIO.HTTPRIO_BeforeExecute(const MethodName: string; var SOAPRequest: InvString);
-var
-  MemStream: TMemoryStream;
-  S: string;
-begin
-  if Assigned(FEET) then
-    begin
-      MemStream := TMemoryStream.Create;
-      try
-        S := UTF8Encode(SOAPRequest);
-        MemStream.Write(S[1], Length(S));
-        MemStream.Position := 0;
-        FEET.SignMessage(MemStream);
-        MemStream.Position := 0;
-        SetLength(S, MemStream.Size);
-        MemStream.Read(S[1], MemStream.Size);
-        MemStream.Position := 0;
-        FEET.RequestStream.Clear;
-        FEET.RequestStream.CopyFrom(MemStream, MemStream.Size);
-        SOAPRequest := UTF8Decode(S);
-      finally
-        MemStream.Free;
-      end;
-      if Assigned(FEET.OnBeforeSendRequest) then FEET.OnBeforeSendRequest(MethodName, SOAPRequest);
-    end;
-end;
-{$ELSE}
-procedure TEETRIO.HTTPRIO_BeforeExecute(const MethodName: string; SOAPRequest: TStream);
-begin
-  SOAPRequest.Position:=0;
-  if Assigned(FEET) then
-    begin
-      FEET.SignMessage(SOAPRequest);
-      SOAPRequest.Position:=0;
-      FEET.RequestStream.Clear;
-      FEET.RequestStream.CopyFrom(SOAPRequest, SOAPRequest.Size);
-      SOAPRequest.Position:=0;
-      if Assigned(FEET.OnBeforeSendRequest) then FEET.OnBeforeSendRequest(MethodName, SOAPRequest);
-    end;
-end;
-{$ENDIF}
-
-procedure TEETRIO.HTTPWebNode_BeforePost(const AHTTPReqResp: THTTPReqResp; AData: Pointer);
-begin
-{$IFDEF USE_INDY}
-  TIdHTTP(AData).ConnectTimeout := AHTTPReqResp.ConnectTimeout;
-  TIdHTTP(AData).HTTPOptions := TIdHTTP(AData).HTTPOptions + [hoKeepOrigProtocol];
-  if TIdHTTP(AData).IOHandler is TIdSSLIOHandlerSocketOpenSSL then
-    if Assigned(FEET) then
-      begin
-        if FEET.RootCertFile <> '' then
-          begin
-            TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.RootCertFile := FEET.RootCertFile;
-            TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.VerifyMode := [sslvrfPeer];
-            TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).SSLOptions.VerifyDepth := 2;
-            TIdSSLIOHandlerSocketOpenSSL(TIdHTTP(AData).IOHandler).OnVerifyPeer := FEET.DoVerifyPeer;
-          end;
-      end;
-{$ENDIF}
-end;
-
-{ TEETTrzbaThread }
-
-procedure TEETTrzbaThread.Execute;
-begin
-  try
-    ErrCode := 0;
-    EETOdpoved := nil;
-    CoInitialize(nil);
-    try
-      EETOdpoved := EET.OdeslaniTrzby(EETTrzba);
-    except
-      on E : Exception do
-        begin
-          ErrCode := -3;
-          ErrMessage := E.Message;
-        end;
-    end;
-    CoUninitialize;
-  except
-  end;
-end;
-
 initialization
-    Randomize;
+
+Randomize;
 
 end.
