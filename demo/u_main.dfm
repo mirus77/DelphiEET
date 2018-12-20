@@ -1,9 +1,9 @@
 object TestEETForm: TTestEETForm
   Left = 283
   Top = 151
-  Width = 931
-  Height = 449
   Caption = 'Test EET'
+  ClientHeight = 410
+  ClientWidth = 932
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -14,7 +14,7 @@ object TestEETForm: TTestEETForm
   OnCreate = FormCreate
   OnShow = FormShow
   DesignSize = (
-    915
+    932
     410)
   PixelsPerInch = 96
   TextHeight = 13
@@ -30,7 +30,7 @@ object TestEETForm: TTestEETForm
   object pnlDebug: TPanel
     Left = 0
     Top = 80
-    Width = 915
+    Width = 932
     Height = 330
     Align = alBottom
     Anchors = [akLeft, akTop, akRight, akBottom]
@@ -39,7 +39,7 @@ object TestEETForm: TTestEETForm
     object pgcDebug: TPageControl
       Left = 1
       Top = 1
-      Width = 913
+      Width = 930
       Height = 328
       ActivePage = tsRequest
       Align = alClient
@@ -49,7 +49,7 @@ object TestEETForm: TTestEETForm
         object grpTrzba: TGroupBox
           Left = 0
           Top = 0
-          Width = 905
+          Width = 922
           Height = 300
           Align = alClient
           Caption = ' Tr'#382'ba '
@@ -57,7 +57,7 @@ object TestEETForm: TTestEETForm
           object synmRequest: TSynMemo
             Left = 2
             Top = 15
-            Width = 901
+            Width = 918
             Height = 283
             Align = alClient
             Font.Charset = DEFAULT_CHARSET

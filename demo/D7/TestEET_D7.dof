@@ -96,7 +96,7 @@ PackageDLLOutputDir=
 PackageDCPOutputDir=
 SearchPath=..\..\source\eet;..\..\source\databinding;..\..\source\vcruntime;..\..\source\httpclient;..\..\source\xmlsec
 Packages=vcl;rtl;vclx;indy;inet;xmlrtl;vclie;inetdbbde;inetdbxpress;dbrtl;dsnap;dsnapcon;vcldb;soaprtl;VclSmp;dbexpress;dbxcds;inetdb;bdertl;vcldbx;webdsnap;websnap;adortl;ibxpress;teeui;teedb;tee;dss;visualclx;visualdbclx;vclactnband;vclshlctrls;IntrawebDB_50_70;Intraweb_50_70;Rave50CLX;Rave50VCL;dclOfficeXP;SynEdit_R7
-Conditionals=USE_VS_LIBS;USE_LIBEET
+Conditionals=USE_VS_LIBS;USE_LIBEET_
 DebugSourceDirs=
 UsePackages=0
 [Parameters]
@@ -135,8 +135,9 @@ ProductName=
 ProductVersion=1.0.0.0
 Comments=
 [HistoryLists\hlConditionals]
-Count=1
-Item0=USE_VS_LIBS;USE_LIBEET
+Count=2
+Item0=USE_VS_LIBS;USE_LIBEET_
+Item1=USE_VS_LIBS;USE_LIBEET
 [HistoryLists\hlUnitAliases]
 Count=1
 Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;

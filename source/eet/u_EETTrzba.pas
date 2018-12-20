@@ -12,7 +12,7 @@ interface
 
 uses
   Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, WebNode, OPToSOAPDomConv, SOAPEnv, ActiveX, u_EETServiceSOAP, XMLDoc,
+  SOAPHTTPTrans, WebNode, OPToSOAPDomConv, SOAPEnv, ActiveX, u_EETXMLSchema, XMLDoc,
   XMLIntf, u_EETSigner, u_EETHttpClient;
 
 type
@@ -34,7 +34,6 @@ type
   protected
     IsInitialized: boolean;
     FSigner: TEETSigner;
-    function EETDateTimeToXMLTime(Value: TDateTime): string;
 {$IFNDEF USE_LIBEET}
     procedure InsertWsse(ParentNode: IXMLNode);
 {$ENDIF}
@@ -44,16 +43,16 @@ type
     destructor Destroy; override;
     procedure Initialize;
     procedure Finalize;
-    function NewRevenue: Trzba;
-    function SignRevenue(const parameters: Trzba): boolean;
-    function SendRevenue(aHttpClient: TEETHttpClient; const parameters: Trzba; SendOnly: boolean = false;
-      aTimeOut: Integer = 0): Odpoved;
-    function SendRevenueWithRIO(const parameters: Trzba; SendOnly: boolean = false; aTimeOut: Integer = 0): Odpoved;
-    function HasWarnings(Odpoved: OdpovedType): boolean;
-    procedure SaveToXML(const parameters: Trzba; const DestStream: TStream);
-    procedure LoadFromXML(parameters: Trzba; const SourceStream: TStream);
+    function NewRevenue: IXMLTrzbaType;
+    function SignRevenue(const parameters: IXMLTrzbaType): boolean;
+    function SendRevenue(aHttpClient: TEETHttpClient; const parameters: IXMLTrzbaType; SendOnly: boolean = false;
+      aTimeOut: Integer = 0): IXMLOdpovedType;
+    function HasWarnings(Odpoved: IXMLOdpovedType): boolean;
+    procedure SaveToXML(const parameters: IXMLTrzbaType; const DestStream: TStream);
+    function LoadFromXML(const SourceStream: TStream) : IXMLTrzbaType;
     procedure SignRequest(SOAPRequest: TStream);
     procedure ValidateResponse(SOAPResponse: TStream);
+    function EETDateTimeToXMLTime(Value: TDateTime): string;
   published
     property ValidResponse: boolean read FValidResponse;
     property ValidResponseCert: boolean read FValidResponseCert;
@@ -69,7 +68,7 @@ type
 
 implementation
 
-uses StrUtils, u_EETRIO,
+uses StrUtils,
 {$IFNDEF USE_LIBEET}
   u_wsse, u_wsse_utils, u_xmldsigcoreschema, SOAPConst,
 {$ENDIF}
@@ -165,12 +164,12 @@ begin
   IsInitialized := false;
 end;
 
-function TEETTrzba.HasWarnings(Odpoved: OdpovedType): boolean;
+function TEETTrzba.HasWarnings(Odpoved: IXMLOdpovedType): boolean;
 begin
   result := false;
   if Odpoved = nil then
     exit;
-  result := Length(Odpoved.Varovani) > 0;
+  result := Odpoved.Varovani.Count > 0;
 end;
 
 procedure TEETTrzba.Initialize;
@@ -250,25 +249,19 @@ begin
 end;
 {$ENDIF}
 
-procedure TEETTrzba.LoadFromXML(parameters: Trzba; const SourceStream: TStream);
+function TEETTrzba.LoadFromXML(const SourceStream: TStream) : IXMLTrzbaType;
 var
-  Converter: IObjConverter;
-  NodeParent: IXMLNode;
-  NodeRoot: IXMLNode;
-  XML, XMLin: IXMLDocument;
+  XMLStr: {$IFDEF LEGACY_RIO}InvString{$ELSE}String{$ENDIF};
+  XMLAnsiStr: AnsiString;
 begin
-  XML := NewXMLDocument;
-  XMLin := NewXMLDocument;
-  XMLin.LoadFromStream(SourceStream);
-
-  NodeRoot := XML.AddChild('Root');
-  NodeParent := XMLin.DocumentElement;
-
-  Converter := TSOAPDomConv.Create(NIL);
-  parameters.SOAPToObject(NodeRoot, NodeParent, Converter);
+  SourceStream.Position := 0;
+  SetLength(XMLAnsiStr, SourceStream.Size);
+  SourceStream.ReadBuffer(Pointer(XMLAnsiStr)^, SourceStream.Size);
+  XMLStr := {$IFDEF LEGACY_RIO}InvString{$ELSE}String{$ENDIF}(XMLAnsiStr);
+  Result := LoadXMLData(XMLStr).GetDocBinding('Trzba', TXMLTrzbaType, TargetNamespace) as IXMLTrzbaType;
 end;
 
-function TEETTrzba.NewRevenue: Trzba;
+function TEETTrzba.NewRevenue: IXMLTrzbaType;
 
   function Hexa(cislo: Integer): String;
   begin
@@ -310,52 +303,37 @@ function TEETTrzba.NewRevenue: Trzba;
   end;
 
 begin
-  result := Trzba.Create;
-  result.Hlavicka := TrzbaHlavickaType.Create;
+  result := NewTrzba;
   result.Hlavicka.uuid_zpravy := NewGuid;
-  // Result.Hlavicka.uuid_zpravy := TGuid.NewGuid.ToString;
-  // Result.Hlavicka.uuid_zpravy := LowerCase(Copy(Result.Hlavicka.uuid_zpravy, 2, Length(Result.Hlavicka.uuid_zpravy)-2));
-
-  result.Hlavicka.dat_odesl := dateTime.Create;
-  result.Hlavicka.dat_odesl.UseZeroMilliseconds := false;
 
   result.Hlavicka.prvni_zaslani := True;
   result.Hlavicka.overeni := false;
 
-  result.Hlavicka.dat_odesl.AsDateTime := now;
+  result.Hlavicka.dat_odesl := EETDateTimeToXMLTime(now);
 
-  result.Data := TrzbaDataType.Create;
-  result.Data.dat_trzby := dateTime.Create;
-  result.Data.dat_trzby.UseZeroMilliseconds := false;
-  // Result.Data.celk_trzba := CastkaType.Create;
-  // Result.Data.cerp_zuct := CastkaType.Create;
-  // Result.Data.cest_sluz := CastkaType.Create;
-  // Result.Data.dan1 := CastkaType.Create;
-  // Result.Data.dan2 := CastkaType.Create;
-  // Result.Data.dan3 := CastkaType.Create;
-  // Result.Data.pouzit_zboz1 := CastkaType.Create;
-  // Result.Data.pouzit_zboz2 := CastkaType.Create;
-  // Result.Data.pouzit_zboz3 := CastkaType.Create;
-  // Result.Data.urceno_cerp_zuct := CastkaType.Create;
-  // Result.Data.zakl_dan1 := CastkaType.Create;
-  // Result.Data.zakl_dan2 := CastkaType.Create;
-  // Result.Data.zakl_dan3 := CastkaType.Create;
-  // Result.Data.zakl_nepodl_dph := CastkaType.Create;
+  result.Data.Rezim := 0;
 
-  // KontrolniKody prepare
-  result.KontrolniKody := TrzbaKontrolniKodyType.Create;
-  result.KontrolniKody.pkp := PkpElementType.Create;
-  result.KontrolniKody.bkp := BkpElementType.Create;
+  result.KontrolniKody.Pkp.Cipher := 'RSA2048';
+  result.KontrolniKody.Pkp.Digest := 'SHA256';
+  result.KontrolniKody.Pkp.Encoding := 'base64';
+
+  result.KontrolniKody.Bkp.Digest := 'SHA1';
+  result.KontrolniKody.Bkp.Encoding := 'base16';
+
 end;
 
-function TEETTrzba.SendRevenue(aHttpClient: TEETHttpClient; const parameters: Trzba; SendOnly: boolean;
-  aTimeOut: Integer): Odpoved;
+function TEETTrzba.SendRevenue(aHttpClient: TEETHttpClient; const parameters: IXMLTrzbaType; SendOnly: boolean;
+  aTimeOut: Integer): IXMLOdpovedType;
 var
   SOAPRequest, SOAPResponse: TMemoryStream;
   TT: TEETTrzbaThread;
   h: tHandle;
   WaitResult: DWORD;
   Tmp: Cardinal;
+{$IFDEF LEGACY_RIO}
+  SOAPRequestAnsiString : AnsiString;
+  SOAPRequestInvString : InvString;
+{$ENDIF}
 
 {$IFNDEF USE_LIBEET}
   DocTrzba: IXMLDocument;
@@ -385,8 +363,8 @@ var
       { * Make SOAP Envelope with DocTrzba body - BEGIN * }
       DocTrzba.LoadFromStream(SOAPRequest);
       EnvNode := aSOAPEnv.MakeEnvelope(Doc, []);
-      HeaderNode := aSOAPEnv.MakeHeader(EnvNode, []);
-      BodyNode := aSOAPEnv.MakeBody(EnvNode, []);
+      HeaderNode := aSOAPEnv.MakeHeader(EnvNode{$IFNDEF LEGACY_RIO},[]{$ENDIF});
+      BodyNode := aSOAPEnv.MakeBody(EnvNode {$IFNDEF LEGACY_RIO},[]{$ENDIF});
       BodyNode.ChildNodes.Add(DocTrzba.DocumentElement);
       SOAPRequest.Clear;
       Doc.SaveToStream(SOAPRequest);
@@ -414,7 +392,6 @@ var
 
   procedure ParseResponse;
   var
-    Converter: IObjConverter;
     XMLin: IXMLDocument;
   begin
     XMLin := NewXMLDocument;
@@ -427,14 +404,9 @@ var
       BodyNode := EnvNode.ChildNodes.FindNode('Body');
     if BodyNode <> nil then
       OdpovedNode := BodyNode.ChildNodes.FindNode('Odpoved', FISKXML_TNSSCHEMA_URI);
-
     if OdpovedNode <> nil then
-      begin
-        Converter := TSOAPDomConv.Create(NIL);
-        if result = nil then
-          result := Odpoved.Create;
-        result.SOAPToObject(EnvNode, OdpovedNode, Converter);
-      end;
+      result := LoadXMLData(OdpovedNode.XML).GetDocBinding('Odpoved', TXMLOdpovedType, TargetNamespace) as IXMLOdpovedType;
+    XMLin := nil
   end;
 
 begin
@@ -445,19 +417,26 @@ begin
   FErrorMessage := '';
   result := nil;
 
-  // milisecond in output correction
-  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
   SOAPRequest := TMemoryStream.Create;
   SOAPResponse := TMemoryStream.Create;
   try
     try
       GenerateRequest;
-{$IFNDEF LEGACY_RIO}
       if Assigned(FOnBeforeSendRequest) then
+        begin
+{$IFDEF LEGACY_RIO}
+        SetLength(SOAPRequestAnsiString, SOAPRequest.Size);
+        SOAPRequest.Position := 0;
+        SOAPRequest.Read(Pointer(SOAPRequestAnsiString)^, SOAPRequest.Size);
+        SOAPRequestInvString := InvString(SOAPRequestAnsiString);
+        FOnBeforeSendRequest('OdeslatTrzbu', SOAPRequestInvString);
+        SOAPRequestAnsiString := AnsiString(SOAPRequestInvString);
+        SOAPRequest.Clear;
+        SOAPRequest.WriteBuffer(Pointer(SOAPRequestAnsiString)^, Length(SOAPRequestAnsiString));
+{$ELSE}
         FOnBeforeSendRequest('OdeslatTrzbu', SOAPRequest);
 {$ENDIF}
+        end;
       try
         if aTimeOut <> 0 then
           begin
@@ -556,117 +535,13 @@ begin
   end;
 end;
 
-function TEETTrzba.SendRevenueWithRIO(const parameters: Trzba; SendOnly: boolean; aTimeOut: Integer): Odpoved;
+procedure TEETTrzba.SaveToXML(const parameters: IXMLTrzbaType; const DestStream: TStream);
 var
-  TT: TEETTrzbaRIOThread;
-  Service: EET;
-  h: tHandle;
-  WaitResult: DWORD;
-  Tmp: Cardinal;
-
-begin
-  FValidResponse := True;
-  FValidResponseCert := True;
-  FErrorCode := 0;
-  FErrorMessage := '';
-  result := nil;
-
-  Service := GetEET(false, URL, GetEETRIO(self));
-
-  // milisecond in output correction
-  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
-  if not SendOnly then
-    SignRevenue(parameters);
-
-  try
-    if aTimeOut <> 0 then
-      begin
-        TT := TEETTrzbaRIOThread.Create(True);
-        try
-          TT.FreeOnTerminate := false;
-          TT.EET := Service;
-          TT.EETTrzba := parameters;
-          h := TT.Handle;
-{$IFDEF LEGACY_RIO}
-          TT.Resume;
-{$ELSE}
-          TT.Start;
-{$ENDIF}
-          if aTimeOut < 0 then
-            WaitResult := WaitForSingleObject(h, Windows.INFINITE)
-          else
-            WaitResult := WaitForSingleObject(h, aTimeOut);
-          case WaitResult of
-            WAIT_OBJECT_0:
-              begin
-                // Thread arrived in time, response is valid
-                FErrorCode := TT.ErrCode;
-                FErrorMessage := TT.ErrMessage;
-                result := TT.EETOdpoved;
-              end;
-          else
-            begin
-              // Thread still running
-              if GetHandleInformation(h, Tmp) then
-                TT.Terminate; // Thread handle still valid, we signal termination?
-              if WaitResult = WAIT_TIMEOUT then
-                begin
-                  FErrorCode := -2;
-                  FErrorMessage := 'Send timeout expired !!!';
-                end
-              else
-                begin
-                  // calling in the Thread has failed
-                  FErrorCode := -2;
-                  FErrorMessage := 'Send timeout expired !!!';
-                end;
-            end;
-          end; // Case
-        finally
-          TT.Free;
-        end;
-      end
-    else
-      result := Service.OdeslaniTrzby(parameters); { invoke the service }
-
-  except
-    on E: Exception do
-      begin
-        // error in sending request and parsing response
-        FErrorCode := -3;
-        FErrorMessage := E.Message;
-      end;
-  end;
-end;
-
-procedure TEETTrzba.SaveToXML(const parameters: Trzba; const DestStream: TStream);
-var
-  Converter: IObjConverter;
-  NodeObject: IXMLNode;
-  NodeRoot: IXMLNode;
-  XML: IXMLDocument;
-  XMLStr: {$IFDEF LEGACY_RIO}InvString{$ELSE}String{$ENDIF};
   XMLAnsiStr: AnsiString;
 begin
-  XML := TXMLDocument.Create(nil);
-  Converter := TSOAPDomConv.Create(NIL);
-  try
-    XML.Active := True;
-    XML.Options := [doNodeAutoCreate];
-    XML.Encoding := 'utf-8';
-    NodeRoot := XML.CreateNode('Root');
-    NodeObject := parameters.ObjectToSOAP(NodeRoot, NodeRoot, Converter, 'Trzba', '', {$IFNDEF LEGACY_RIO} '',
-{$ENDIF} [ocoDontPrefixNode, ocoDontPutTypeAttr], XMLStr);
-    NodeObject.Attributes['xmlns'] := FISKXML_TNSSCHEMA_URI;
-    XMLAnsiStr := AnsiString(NodeObject.XML);
-    XML.Active := false;
-    XMLAnsiStr := AnsiString(AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', ''));
-    DestStream.WriteBuffer(Pointer(XMLAnsiStr)^, Length(XMLAnsiStr) * SizeOf(XMLAnsiStr[1]));
-  finally
-    XML := nil;
-  end;
+  XMLAnsiStr := AnsiString(parameters.XML);
+  XMLAnsiStr := AnsiString(AnsiReplaceStr(string(XMLAnsiStr), ' xmlns=""', ''));
+  DestStream.WriteBuffer(Pointer(XMLAnsiStr)^, Length(XMLAnsiStr) * SizeOf(XMLAnsiStr[1]));
 end;
 
 procedure TEETTrzba.SignRequest(SOAPRequest: TStream);
@@ -675,11 +550,29 @@ var
   XMLDoc, xmlDocTemp: IXMLDocument;
   iNode: IXMLNode;
 {$ENDIF}
+{$IFDEF VER150} // Delphi 7
+  procedure CorectXML;
+  var tmpAnsiString : AnsiString;
+  begin
+    SetLength(tmpAnsiString, SOAPRequest.Size);
+    (SOAPRequest as TMemoryStream).ReadBuffer(Pointer(tmpAnsiString)^, SOAPRequest.Size);
+    tmpAnsiString := AnsiString(AnsiReplaceStr(tmpAnsiString, '"False"', '"false"'));
+    tmpAnsiString := AnsiString(AnsiReplaceStr(tmpAnsiString, '"True"', '"true"'));
+    (SOAPRequest as TMemoryStream).Clear;
+    (SOAPRequest as TMemoryStream).WriteBuffer(Pointer(tmpAnsiString)^, Length(tmpAnsiString));
+    (SOAPRequest as TMemoryStream).Position := 0;
+  end;
+{$ENDIF}
+
 begin
   if not FSigner.Active then
     FSigner.Active := True;
 
   (SOAPRequest as TMemoryStream).Position := 0;
+
+{$IFDEF VER150} // Delphi 7
+  CorectXML;
+{$ENDIF}
 
 {$IFNDEF USE_LIBEET}
   xmlDocTemp := NewXMLDocument;
@@ -728,7 +621,7 @@ begin
   FSigner.SignXML(SOAPRequest as TMemoryStream);
 end;
 
-function TEETTrzba.SignRevenue(const parameters: Trzba): boolean;
+function TEETTrzba.SignRevenue(const parameters: IXMLTrzbaType): boolean;
 var
   sPKPData: string;
 begin
@@ -737,16 +630,8 @@ begin
     exit;
 
   // milisecond in output correction
-  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
-  // prepare element KontrolniKody
-  if parameters.KontrolniKody = nil then
-    parameters.KontrolniKody := TrzbaKontrolniKodyType.Create;
-  if parameters.KontrolniKody.pkp = nil then
-    parameters.KontrolniKody.pkp := PkpElementType.Create;
-  if parameters.KontrolniKody.bkp = nil then
-    parameters.KontrolniKody.bkp := BkpElementType.Create;
+//  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+//  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
 
   parameters.KontrolniKody.pkp.Text := '';
   parameters.KontrolniKody.bkp.Text := '';
@@ -757,8 +642,8 @@ begin
   sPKPData := sPKPData + '|' + IntToStr(parameters.Data.id_provoz);
   sPKPData := sPKPData + '|' + parameters.Data.id_pokl;
   sPKPData := sPKPData + '|' + parameters.Data.porad_cis;
-  sPKPData := sPKPData + '|' + parameters.Data.dat_trzby.NativeToXS;
-  sPKPData := sPKPData + '|' + parameters.Data.celk_trzba.DecimalString;
+  sPKPData := sPKPData + '|' + parameters.Data.dat_trzby;
+  sPKPData := sPKPData + '|' + parameters.Data.celk_trzba;
 
   // generate PKP
   parameters.KontrolniKody.pkp.Text := FSigner.MakePKP(sPKPData);

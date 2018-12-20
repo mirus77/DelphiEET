@@ -1,11 +1,11 @@
 # DelphiEET
 Delphi component for registered sale data messages. http://www.etrzby.cz
 
-- It may be compiled with 
-  Delphi 7 (Native WinInet, SecureBridge, Synapse) and 
-  Delphi 2007 (Native WinInet, SecureBridge, Synapse) and 
-  Delphi 10.2 Berlin (Indy, WinInet, SecureBridge, Synapse)
-  Delphi 10.3 Rio (Net.HttpClient, SecureBridge, Synapse)
+- this library may be compiled with 
+  * Delphi 7 (Indy10, SecureBridge, Synapse) 
+  * Delphi 2007 (Indy10, SecureBridge, Synapse)
+  * Delphi 10.2 Berlin (Indy10, Net.HttpClient, SecureBridge, Synapse)
+  * Delphi 10.3 Rio (Indy10, Net.HttpClient, SecureBridge, Synapse)
 
 
 ## Use  with USE_LIBEET
@@ -30,9 +30,9 @@ Delphi project Options for demo TestEET.dpr with USE_LIBEET
   
   Select EETHttpClient directives :
       USE_SYNAPSE_CLIENT - use Synapse library for HTTP Post (WinXP and higher)
-      or USE_RIO_CLIENT - Native SOAP HTTPRio for HTTP Post (default choice) Win Vista and higher
       or USE_SBRIDGE_CLIENT - use SecureBridge components from www.devart.com for HTTP Post (WinXP and higher)
-      or USE_NETHTTP_CLIENT - use Net.HttpClient with Delphi XE8 and higher for HTTP Post (uniplatform)  
+      or USE_INDY_CLIENT - use Indy 10 components for HTTP Post (WinXP and higher)
+      or USE_NETHTTP_CLIENT - use Net.HttpClient with Delphi XE8 and higher for HTTP Post (multiplatform)  
 
   Delphi Compiler Options -> Output Directory: ..\..\bin
   Delphi Compiler Options -> Search Path:
@@ -69,9 +69,9 @@ Delphi project Options for demo TestEET.dpr
 	  
   Select EETHttpClient directives :
       USE_SYNAPSE_CLIENT - use Synapse library for HTTP Post (WinXP and higher)
-      or USE_RIO_CLIENT - Native SOAP HTTPRio for HTTP Post (default choice) Win Vista and higher
       or USE_SBRIDGE_CLIENT - use SecureBridge components from www.devart.com for HTTP Post (WinXP and higher)
-      or USE_NETHTTP_CLIENT - use Net.HttpClient with Delphi XE8 and higher for HTTP Post (uniplatform)  
+      or USE_INDY_CLIENT - use Indy 10 components for HTTP Post (WinXP and higher)
+      or USE_NETHTTP_CLIENT - use Net.HttpClient with Delphi XE8 and higher for HTTP Post (multiplatform)  
 	  
   Delphi Compiler Options -> Output Directory: ..\..\bin
   Delphi Compiler Options -> Search Path:

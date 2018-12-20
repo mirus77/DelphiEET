@@ -10,7 +10,6 @@ interface
 {$LEGACYIFEND ON}
 {$IFEND}
 
-{$DEFINE USE_RIO_CLIENT} // RIO is default, don`t comment
 {.$DEFINE USE_INDY_CLIENT}
 {$DEFINE USE_SYNAPSE_CLIENT}
 {.$DEFINE USE_SBRIDGE_CLIENT}
@@ -70,7 +69,7 @@ var
 implementation
 
 uses
-  u_EETServiceSOAP, XMLIntf, XMLDoc,
+  u_EETXMLSchema, XMLIntf, XMLDoc,
 {$IF CompilerVersion > 24} UITypes, {$IFEND}
   u_EETTrzba;
 
@@ -151,20 +150,17 @@ const
   LocFS: TFormatSettings = (DecimalSeparator: '.');
 
 var
-  Odp: Odpoved;
-  eTrzba: Trzba;
+  Odp: IXMLOdpovedType;
+  eTrzba: IXMLTrzbaType;
   EET: TEETTrzba;
   Lst: TStringList;
   I: Integer;
   ms: TMemoryStream;
-  {$IFNDEF USE_RIO_CLIENT}
   aClient: TEETHttpClient;
-  {$ENDIF}
 
-  function DoubleToCastkaType(Value: Double): CastkaType;
+  function DoubleToCastkaType(Value: Double): String;
   begin
-    Result := CastkaType.Create;
-    Result.DecimalString := FormatFloat('0.00', Value, LocFS);
+    Result := FormatFloat('0.00', Value, LocFS);
   end;
 
 begin
@@ -176,7 +172,6 @@ begin
   {$IFDEF USE_SBRIDGE_CLIENT} aClient := TEETHttpClientSB.Create(nil); {$ENDIF}
   {$IFDEF USE_SYNAPSE_CLIENT} aClient := TEETHttpClientSynapse.Create(nil); {$ENDIF}
   try
-    {$IFNDEF USE_RIO_CLIENT}
     // Verify HTTPS Server certificate
     aClient.RootCertFile := ExpandFileName('..\cert\DigiCertGlobalRootG2.cer');
     // Verify CommonName of HTTPS Sever certificate
@@ -185,7 +180,6 @@ begin
     aClient.ReceiveTimeout := 3000;
     // aClient.UseProxy := true;
     // aClient.ProxyHost := 'proxy';
-    {$ENDIF}
 
     EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
     // EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
@@ -207,7 +201,7 @@ begin
     eTrzba.Data.id_provoz := 273;
     eTrzba.Data.id_pokl := '/5546/RO24';
     eTrzba.Data.porad_cis := '0/6460/ZQ42';
-    eTrzba.Data.dat_trzby.AsDateTime := now;
+    eTrzba.Data.dat_trzby := EET.EETDateTimeToXMLTime(now);
     eTrzba.Data.celk_trzba := DoubleToCastkaType(34113);
     eTrzba.Data.cerp_zuct := DoubleToCastkaType(679.00);
     eTrzba.Data.cest_sluz := DoubleToCastkaType(5460.00);
@@ -223,32 +217,29 @@ begin
     eTrzba.Data.zakl_dan3 := DoubleToCastkaType(9756.46);
     eTrzba.Data.zakl_nepodl_dph := DoubleToCastkaType(3036.00);
 
+
      //EET.SignRevenue(eTrzba); // normalize date and PKP,BKP creating
 
     // test for saving to XML amd load from XML
     // loading don't work under Delphi 2007
-//     ms.Clear;
-//     EET.SaveToXML(eTrzba, ms);
-//     ms.Position := 0;
-//     ms.SaveToFile('eTrzba.xml');
-//     eTrzba.Free;
+     ms.Clear;
+     EET.SaveToXML(eTrzba, ms);
+     ms.Position := 0;
+     ms.SaveToFile('eTrzba.xml');
+     eTrzba := nil;
 //     eTrzba := EET.NewRevenue;
-//     EET.LoadFromXML(eTrzba, ms);
-//     ms.Clear;
-//     EET.SaveToXML(eTrzba, ms);
-//     ms.Position := 0;
-//     ms.SaveToFile('eTrzbaLoaded.xml');
+     eTrzba := EET.LoadFromXML(ms);
+     ms.Clear;
+     EET.SaveToXML(eTrzba, ms);
+     ms.Position := 0;
+     ms.SaveToFile('eTrzbaLoaded.xml');
 
-    {$IFDEF USE_RIO_CLIENT}
-    Odp := EET.SendRevenueWithRIO(eTrzba, False, 0);  // native Delphi SOAP
-    {$ELSE}
     Odp := EET.SendRevenue(aClient, eTrzba, False, 0);
-    {$ENDIF}
 
-    ms.Clear;
-    EET.SaveToXML(eTrzba, ms);
-    ms.Position := 0;
-    ms.SaveToFile('eTrzbaSigned.xml');
+//    ms.Clear;
+//    EET.SaveToXML(eTrzba, ms);
+//    ms.Position := 0;
+//    ms.SaveToFile('eTrzbaSigned.xml');
 
     // loading xml Soap Request for treatment
     // loading xml Soap Response for treatment
@@ -256,6 +247,9 @@ begin
     EET.ResponseStream.Position := 0;
     synmRequest.Lines.LoadFromStream(EET.RequestStream);
     synmResponse.Lines.LoadFromStream(EET.ResponseStream);
+
+    EET.RequestStream.SaveToFile('request.xml');
+    EET.ResponseStream.SaveToFile('response.xml');
 
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
@@ -268,7 +262,7 @@ begin
                   if EET.HasWarnings(Odp) then
                     begin
                       Lst.Add('Warnings : ');
-                      for I := 0 to Length(Odp.Varovani) - 1 do
+                      for I := 0 to Odp.Varovani.Count - 1 do
                         Lst.Add(Format('%s - code : %d', [Odp.Varovani[I].Text, Odp.Varovani[I].kod_varov]));
                     end;
                   if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
@@ -309,14 +303,11 @@ begin
       end;
     synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
   finally
-    if Odp <> nil then
-      FreeAndNil(Odp);
-    eTrzba.Free;
+    Odp := nil;
+    eTrzba := nil;
     EET.Free;
     ms.Free;
-    {$IFNDEF USE_RIO_CLIENT}
     aClient.Free;
-    {$ENDIF}
   end;
 end;
 

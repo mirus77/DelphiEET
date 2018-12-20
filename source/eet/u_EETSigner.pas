@@ -435,7 +435,7 @@ var
           begin
             md_size := ctx.digest.md_size;
             SetLength(Result, md_size);
-            Result := AnsiStrings.StrLCopy(PAnsiChar(Result), PAnsiChar(digest), md_size);
+            Result := {$IF CompilerVersion >= 23.0 }AnsiStrings.{$IFEND}StrLCopy(PAnsiChar(Result), PAnsiChar(digest), md_size);
           end;
         // EVP_MD_CTX_destroy alternative
         EETSigner_EVP_MD_CTX_cleanup(ctx);
