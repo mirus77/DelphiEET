@@ -1,29 +1,24 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 unit u_main;
 
+{* Configure USE_*_CLIENT in EETDefines.inc *}
+{$I EETDefines.inc}
+
 interface
-
-{$IFNDEF UNICODE}
-{$DEFINE LEGACY_RIO}
-{$ENDIF}
-// For Delphi XE3 and up:
-{$IF CompilerVersion >= 24.0 }
-{$LEGACYIFEND ON}
-{$IFEND}
-
-{.$DEFINE USE_INDY_CLIENT}
-{$DEFINE USE_SYNAPSE_CLIENT}
-{.$DEFINE USE_SBRIDGE_CLIENT}
-{.$DEFINE USE_NETHTTP_CLIENT}
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
   Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter,
-  SynHighlighterXML, XSBuiltIns, InvokeRegistry, ExtCtrls, ComCtrls,
+  SynHighlighterXML, ExtCtrls, ComCtrls,
   u_EETSigner,
-  {$IFDEF USE_INDY_CLIENT}    u_EETHttpClient_Indy, {$UNDEF USE_RIO_CLIENT}{$ENDIF}
-  {$IFDEF USE_NETHTTP_CLIENT} u_EETHttpClient_Net,  {$UNDEF USE_RIO_CLIENT}{$ENDIF}
-  {$IFDEF USE_SBRIDGE_CLIENT} u_EETHttpClient_SB,   {$UNDEF USE_RIO_CLIENT}{$ENDIF}
-  {$IFDEF USE_SYNAPSE_CLIENT} u_EETHttpClient_Synapse,{$UNDEF USE_RIO_CLIENT}{$ENDIF}
+  {$IFDEF USE_INDY_CLIENT}    u_EETHttpClient_Indy,   {$ENDIF}
+  {$IFDEF USE_NETHTTP_CLIENT} u_EETHttpClient_Net,    {$ENDIF}
+  {$IFDEF USE_SBRIDGE_CLIENT} u_EETHttpClient_SB,     {$ENDIF}
+  {$IFDEF USE_SYNAPSE_CLIENT} u_EETHttpClient_Synapse,{$ENDIF}
   u_EETHttpClient;
 
 type
@@ -201,7 +196,7 @@ begin
     eTrzba.Data.id_provoz := 273;
     eTrzba.Data.id_pokl := '/5546/RO24';
     eTrzba.Data.porad_cis := '0/6460/ZQ42';
-    eTrzba.Data.dat_trzby := EET.EETDateTimeToXMLTime(now);
+    eTrzba.Data.dat_trzby := EET.DateTimeToXMLTime(now);
     eTrzba.Data.celk_trzba := DoubleToCastkaType(34113);
     eTrzba.Data.cerp_zuct := DoubleToCastkaType(679.00);
     eTrzba.Data.cest_sluz := DoubleToCastkaType(5460.00);
@@ -218,21 +213,20 @@ begin
     eTrzba.Data.zakl_nepodl_dph := DoubleToCastkaType(3036.00);
 
 
-     //EET.SignRevenue(eTrzba); // normalize date and PKP,BKP creating
+     //EET.SignRevenue(eTrzba); // PKP,BKP creating
 
-    // test for saving to XML amd load from XML
-    // loading don't work under Delphi 2007
+    // BEGIN - test for saving to XML and load from XML
      ms.Clear;
      EET.SaveToXML(eTrzba, ms);
      ms.Position := 0;
      ms.SaveToFile('eTrzba.xml');
-     eTrzba := nil;
-//     eTrzba := EET.NewRevenue;
+     eTrzba := nil; // Free before LoadFromXML
      eTrzba := EET.LoadFromXML(ms);
      ms.Clear;
      EET.SaveToXML(eTrzba, ms);
      ms.Position := 0;
      ms.SaveToFile('eTrzbaLoaded.xml');
+    // END - test for saving to XML and load from XML
 
     Odp := EET.SendRevenue(aClient, eTrzba, False, 0);
 
@@ -248,6 +242,7 @@ begin
     synmRequest.Lines.LoadFromStream(EET.RequestStream);
     synmResponse.Lines.LoadFromStream(EET.ResponseStream);
 
+    // backup request and response to file
     EET.RequestStream.SaveToFile('request.xml');
     EET.ResponseStream.SaveToFile('response.xml');
 
@@ -302,6 +297,7 @@ begin
           ShowMessageFmt('Error : %d - %s', [EET.ErrorCode, EET.ErrorMessage]);
       end;
     synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
+    mmoLog.Lines.Add('ResponseCert : Subject ' + EET.Signer.ResponseCertInfo.Subject + ', Common Name : ' + EET.Signer.ResponseCertInfo.CommonName);
   finally
     Odp := nil;
     eTrzba := nil;
@@ -338,7 +334,7 @@ begin
   IsValidResponse := true;
   if GetCurrentThreadID = MainThreadID then
     begin
-      mmoLog.Lines.Add('ResponseCert : Subject ' + ResponseCertInfo.Subject + ', Common Name : ' + ResponseCertInfo.CommonName);
+      mmoLog.Lines.Add('OnVerifyResponseCert : Subject ' + ResponseCertInfo.Subject + ', Common Name : ' + ResponseCertInfo.CommonName);
     end;
 end;
 

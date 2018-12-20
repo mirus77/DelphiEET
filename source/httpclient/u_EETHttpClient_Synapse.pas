@@ -1,6 +1,12 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 { *
   requirement : Synapse library at http://synapse.ararat.cz
   * }
+
 unit u_EETHttpClient_Synapse;
 
 interface
@@ -10,33 +16,15 @@ uses SysUtils, Classes, HTTPSend, ssl_openssl, u_EETHttpClient;
 type
   TEETHttpClientSynapse = class(TEETHttpClient)
   private
-    FRootCertFile: string;
-    FHttpsTrustName: string;
   protected
   public
-    constructor Create(aOwner: TComponent); override;
-    destructor Destroy; override;
     procedure SendRequest(aUrl: String; aRequestStream: TStream; aResponseStream: TStream); override;
   published
-    property RootCertFile: string read FRootCertFile write FRootCertFile;
-    property HttpsTrustName: string read FHttpsTrustName write FHttpsTrustName;
   end;
 
 implementation
 
 { TEETHttpClientSynapse }
-
-constructor TEETHttpClientSynapse.Create(aOwner: TComponent);
-begin
-  inherited Create(aOwner);
-
-end;
-
-destructor TEETHttpClientSynapse.Destroy;
-begin
-
-  inherited Destroy;
-end;
 
 procedure TEETHttpClientSynapse.SendRequest(aUrl: String; aRequestStream, aResponseStream: TStream);
 var

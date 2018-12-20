@@ -4,6 +4,8 @@ Unit libxmlsec;
 
 interface
 
+{$I EETDefines.inc}
+
 {$ALIGN 8}
 {$MINENUMSIZE 4}
 

@@ -1,19 +1,17 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 unit u_EETTrzba;
+
+{$I EETDefines.inc}
 
 interface
 
-{$IFNDEF UNICODE}
-{$DEFINE LEGACY_RIO}
-{$ENDIF}
-// For Delphi XE3 and up:
-{$IF CompilerVersion >= 24.0 }
-{$LEGACYIFEND ON}
-{$IFEND}
-
 uses
-  Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types, XSBuiltIns,
-  SOAPHTTPTrans, WebNode, OPToSOAPDomConv, SOAPEnv, ActiveX, u_EETXMLSchema, XMLDoc,
-  XMLIntf, u_EETSigner, u_EETHttpClient;
+  Windows, SysUtils, Classes, InvokeRegistry, Rio, SOAPHTTPClient, Types,
+  SOAPEnv, ActiveX, u_EETXMLSchema, XMLDoc, XMLIntf, u_EETSigner, u_EETHttpClient;
 
 type
   TEETTrzba = class;
@@ -52,7 +50,7 @@ type
     function LoadFromXML(const SourceStream: TStream) : IXMLTrzbaType;
     procedure SignRequest(SOAPRequest: TStream);
     procedure ValidateResponse(SOAPResponse: TStream);
-    function EETDateTimeToXMLTime(Value: TDateTime): string;
+    function DateTimeToXMLTime(Value: TDateTime): string;
   published
     property ValidResponse: boolean read FValidResponse;
     property ValidResponseCert: boolean read FValidResponseCert;
@@ -93,7 +91,7 @@ begin
   inherited;
 end;
 
-function TEETTrzba.EETDateTimeToXMLTime(Value: TDateTime): string;
+function TEETTrzba.DateTimeToXMLTime(Value: TDateTime): string;
 
 const
   Neg: array [boolean] of string = ('+', '-');
@@ -309,7 +307,7 @@ begin
   result.Hlavicka.prvni_zaslani := True;
   result.Hlavicka.overeni := false;
 
-  result.Hlavicka.dat_odesl := EETDateTimeToXMLTime(now);
+  result.Hlavicka.dat_odesl := DateTimeToXMLTime(now);
 
   result.Data.Rezim := 0;
 
@@ -630,8 +628,8 @@ begin
     exit;
 
   // milisecond in output correction
-//  parameters.Hlavicka.dat_odesl.XSToNative(EETDateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-//  parameters.Data.dat_trzby.XSToNative(EETDateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
+//  parameters.Hlavicka.dat_odesl.XSToNative(DateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
+//  parameters.Data.dat_trzby.XSToNative(DateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
 
   parameters.KontrolniKody.pkp.Text := '';
   parameters.KontrolniKody.bkp.Text := '';

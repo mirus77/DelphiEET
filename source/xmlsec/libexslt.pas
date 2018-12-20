@@ -3,6 +3,7 @@
 Unit libexslt;
 
 interface
+{$I EETDefines.inc}
 
 {$ALIGN 8}
 {$MINENUMSIZE 4}
@@ -10,7 +11,7 @@ interface
 uses libxml2, libxslt;
 
 const
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   LIBEXSLT_SO = 'libexslt.dll';
 {$ELSE}
   LIBEXSLT_SO = 'libexslt.so';
@@ -36,7 +37,7 @@ const
 
 implementation
 uses
-{$IFDEF WIN32}
+{$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
   SysUtils;

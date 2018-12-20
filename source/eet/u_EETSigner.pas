@@ -1,13 +1,13 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 unit u_EETSigner;
 
+{$I EETDefines.inc}
+
 interface
-
-{* functions SHA1 is independent on libeay32.dll when use synacode.pas unit, DEFINE USE_SYNACODE *}
-{.$DEFINE USE_SYNACODE}
-
-{$IF CompilerVersion >= 24.0}
-  {$LEGACYIFEND ON}
-{$IFEND}
 
 uses Classes,
 {$IFDEF USE_LIBEET}
@@ -119,7 +119,7 @@ procedure EETSigner_EVP_MD_CTX_cleanup(ctx: pEVP_MD_CTX); cdecl;
 implementation
 
 uses
-  StrUtils, DateUtils, {$IF CompilerVersion >= 23.0 }AnsiStrings,{$IFEND}
+  StrUtils, DateUtils, {$IF RTLVersion >= 25 }AnsiStrings,{$IFEND}
 {$IFNDEF USE_LIBEET}
   libxmlsec_openssl,
 {$IFDEF USE_SYNACODE}synacode,{$ENDIF}

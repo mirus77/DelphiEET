@@ -1,19 +1,26 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 unit u_libeet;
 
 interface
+
+{$I EETDefines.inc}
 
 {$ALIGN 8}
 {$MINENUMSIZE 4}
 {$M+}
 
-{$IF CompilerVersion >= 24.0}
-  {$LEGACYIFEND ON}
-{$IFEND}
-
 uses Classes;
 
 const
+{$IFDEF MSWINDOWS}
   LIBEET_SO : string = 'libeetsigner.dll';
+{$ELSE}
+  LIBEET_SO : string = 'libeetsigner.so';
+{$ENDIF}
 
 type
   TlibeetLogEvent  = procedure(const file_: string; line: Longint; const func: string; const errorObject: string; const errorSubject: string; reason: Longint; const msg: string) of object;

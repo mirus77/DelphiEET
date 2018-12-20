@@ -1,9 +1,13 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 unit u_EETHttpClient_Indy;
 
+{$I EETDefines.inc}
+
 interface
-{$IFNDEF UNICODE}
-{$DEFINE LEGACY_RIO}
-{$ENDIF}
 
 uses SysUtils, Classes, IdHttp, IdURI, IdSSLOpenSSL, u_EETHttpClient;
 

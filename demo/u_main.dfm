@@ -66,6 +66,12 @@ object TestEETForm: TTestEETForm
             Font.Name = 'Courier New'
             Font.Style = []
             TabOrder = 0
+            CodeFolding.CollapsedLineColor = clGrayText
+            CodeFolding.FolderBarLinesColor = clGrayText
+            CodeFolding.ShowCollapsedLine = True
+            CodeFolding.IndentGuidesColor = clGray
+            CodeFolding.IndentGuides = True
+            UseCodeFolding = False
             Gutter.AutoSize = True
             Gutter.Font.Charset = DEFAULT_CHARSET
             Gutter.Font.Color = clWindowText
@@ -75,6 +81,7 @@ object TestEETForm: TTestEETForm
             Gutter.ShowLineNumbers = True
             Highlighter = synxmlsyn2
             ReadOnly = True
+            FontSmoothing = fsmNone
           end
         end
       end
@@ -101,6 +108,12 @@ object TestEETForm: TTestEETForm
             Font.Name = 'Courier New'
             Font.Style = []
             TabOrder = 0
+            CodeFolding.CollapsedLineColor = clGrayText
+            CodeFolding.FolderBarLinesColor = clGrayText
+            CodeFolding.ShowCollapsedLine = True
+            CodeFolding.IndentGuidesColor = clGray
+            CodeFolding.IndentGuides = True
+            UseCodeFolding = False
             Gutter.AutoSize = True
             Gutter.Font.Charset = DEFAULT_CHARSET
             Gutter.Font.Color = clWindowText
@@ -110,6 +123,7 @@ object TestEETForm: TTestEETForm
             Gutter.ShowLineNumbers = True
             Highlighter = synxmlsyn2
             ReadOnly = True
+            FontSmoothing = fsmNone
           end
         end
       end
@@ -229,6 +243,9 @@ object TestEETForm: TTestEETForm
     end
   end
   object synxmlsyn2: TSynXMLSyn
+    Options.AutoDetectEnabled = False
+    Options.AutoDetectLineLimit = 0
+    Options.Visible = False
     WantBracesParsed = False
     Left = 752
     Top = 208

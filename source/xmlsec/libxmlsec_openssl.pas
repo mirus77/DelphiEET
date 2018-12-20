@@ -1,11 +1,13 @@
 Unit libxmlsec_openssl;
 {.$DEFINE _DYNAMIC_LOAD_XMLSEC}
+{$I EETDefines.inc}
+
 interface
 
 {$ALIGN 8}
 {$MINENUMSIZE 4}
 
-uses SysUtils, Classes, {TimeSpan,}  libxml2, libxmlsec, libeay32;
+uses SysUtils, Classes, libxml2, libxmlsec, libeay32;
 
 const
 {$IFDEF MSWINDOWS}

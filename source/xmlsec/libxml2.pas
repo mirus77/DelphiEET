@@ -4,10 +4,10 @@ Unit libxml2;
 
 interface
 
+{$I EETDefines.inc}
+
 {$ALIGN 8}
 {$MINENUMSIZE 4}
-
-
 
 const
 {$IFDEF MSWINDOWS}

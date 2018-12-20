@@ -1,3 +1,8 @@
+{* ----------------------------------------------------------- *}
+{* DelphiEET library at https://github.com/mirus77/DelphiEET   *}
+{* License info at file LICENSE                                *}
+{* ----------------------------------------------------------- *}
+
 {*
     requirement : SecureBridge components at https://www.devart.com/sbridge/
 *}
