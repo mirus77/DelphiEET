@@ -4,7 +4,7 @@ Delphi component for registered sale data messages. http://www.etrzby.cz
 - this library may be compiled with 
   * Delphi 7 (Indy10, SecureBridge, Synapse) 
   * Delphi 2007 (Indy10, SecureBridge, Synapse)
-  * Delphi 10.2 Berlin (Indy10, Net.HttpClient, SecureBridge, Synapse)
+  * Delphi 10.2 Tokio (Indy10, WinInet, SecureBridge, Synapse)
   * Delphi 10.3 Rio (Indy10, Net.HttpClient, SecureBridge, Synapse)
 
 
