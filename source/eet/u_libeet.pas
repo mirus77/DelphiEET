@@ -400,7 +400,6 @@ begin
   if buf <> nil then
     begin
       Result := string(buf);
-      eetFree(buf);
     end;
 end;
 

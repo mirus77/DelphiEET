@@ -119,7 +119,7 @@ procedure EETSigner_EVP_MD_CTX_cleanup(ctx: pEVP_MD_CTX); cdecl;
 implementation
 
 uses
-  StrUtils, DateUtils, {$IF RTLVersion >= 25 }AnsiStrings,{$IFEND}
+  StrUtils, DateUtils, SyncObjs, {$IF RTLVersion >= 25 }AnsiStrings,{$IFEND}
 {$IFNDEF USE_LIBEET}
   libxmlsec_openssl,
 {$IFDEF USE_SYNACODE}synacode,{$ENDIF}
@@ -139,6 +139,7 @@ const
 
 var
   EETSignerCount: integer = 0;
+  Lock: TCriticalSection;
 
 {$IFNDEF USE_LIBEET}
 {$IFNDEF USE_SYNACODE}
@@ -182,7 +183,6 @@ end;
 
 constructor TEETSigner.Create(AOwner: TComponent);
 begin
-  Inc(EETSignerCount);
   InitXMLSec;
   inherited Create(AOwner);
   FPFXStream := TMemoryStream.Create;
@@ -200,7 +200,6 @@ begin
     Active := False;
   FPFXStream.Free;
   FCERTrustedList.Free;
-  Dec(EETSignerCount);
   ShutDownXMLSec;
   inherited;
 end;
@@ -320,38 +319,45 @@ end;
 
 procedure TEETSigner.InitXMLSec;
 begin
-  if EETSignerCount > 1 then
-    Exit;
+  Lock.Enter;
+  try
+    if EETSignerCount = 0 then
+      begin
 {$IFNDEF USE_LIBEET}
-  xmlInitParser();
-  __xmlLoadExtDtdDefaultValue^ := XML_DETECT_IDS or XML_COMPLETE_ATTRS;
-  xmlSubstituteEntitiesDefault(1);
-  __xmlIndentTreeOutput^ := 0; // don't format XML elements
+        xmlInitParser();
+        __xmlLoadExtDtdDefaultValue^ := XML_DETECT_IDS or XML_COMPLETE_ATTRS;
+        xmlSubstituteEntitiesDefault(1);
+        __xmlIndentTreeOutput^ := 0; // don't format XML elements
 
-  xmlSecBase64SetDefaultLineSize(0); // for single line SignatureValue
+        xmlSecBase64SetDefaultLineSize(0); // for single line SignatureValue
 
-  if (xmlSecInit() < 0) then
-    raise EEETSignerException.Create(sSignerXmlSecInitError);
+        if (xmlSecInit() < 0) then
+          raise EEETSignerException.Create(sSignerXmlSecInitError);
 
-  if (xmlSecCheckVersionExt(1, 2, 18, xmlSecCheckVersionABICompatible) <> 1) then
-    raise EEETSignerException.Create(sSignerInitWrongDll);
+        if (xmlSecCheckVersionExt(1, 2, 18, xmlSecCheckVersionABICompatible) <> 1) then
+          raise EEETSignerException.Create(sSignerInitWrongDll);
 
-  if (xmlSecCryptoDLLoadLibrary('openssl') < 0) then
-    raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
-  // if (xmlSecCryptoDLLoadLibrary('mscrypto') < 0)
-  // then raise EEETSignerException.Create(sSignerInitNoXmlsecMSCryptoDll);
+        if (xmlSecCryptoDLLoadLibrary('openssl') < 0) then
+          raise EEETSignerException.Create(sSignerInitNoXmlsecOpensslDll);
+        // if (xmlSecCryptoDLLoadLibrary('mscrypto') < 0)
+        // then raise EEETSignerException.Create(sSignerInitNoXmlsecMSCryptoDll);
 
-  if (xmlSecCryptoAppInit(nil) < 0) then
-    raise EEETSignerException.Create(sSignerXmlSecInitError);
+        if (xmlSecCryptoAppInit(nil) < 0) then
+          raise EEETSignerException.Create(sSignerXmlSecInitError);
 
-  if (xmlSecCryptoInit() < 0) then
-    raise EEETSignerException.Create(sSignerXmlSecInitError);
+        if (xmlSecCryptoInit() < 0) then
+          raise EEETSignerException.Create(sSignerXmlSecInitError);
 {$ELSE}
-  if not InitLibEETSigner('') then
-    raise EEETSignerException.Create(sSignerLibEETInitLibError);
-  if (eetSignerInit < 0) then
-    raise EEETSignerException.Create(sSignerLibEETSignerInitError);
+        if not InitLibEETSigner('') then
+          raise EEETSignerException.Create(sSignerLibEETInitLibError);
+        if (eetSignerInit < 0) then
+          raise EEETSignerException.Create(sSignerLibEETSignerInitError);
 {$ENDIF}
+      end;
+    Inc(EETSignerCount);
+  finally
+    Lock.Leave;
+  end;
 end;
 
 procedure TEETSigner.LoadPFXCertFromFile(const PFXFileName: TFileName; const CertPassword: AnsiString);
@@ -877,7 +883,7 @@ begin
           eetSignerKeysMngrDestroy(FMngr);
           FMngr := nil;
         end;
-      eetSignerCleanUp;
+//      eetSignerCleanUp;
 {$ENDIF}
       FPFXStream.Clear;
       FCERTrustedList.Clear;
@@ -994,7 +1000,7 @@ begin
           eetSignerKeysMngrDestroy(FMngr);
           FMngr := nil;
         end;
-      eetSignerCleanUp;
+//      eetSignerCleanUp;
 {$ENDIF}
       raise;
     end;
@@ -1007,16 +1013,23 @@ end;
 
 procedure TEETSigner.ShutDownXMLSec;
 begin
-  if EETSignerCount = 0 then
-    begin
+  Lock.Enter;
+  try
+    if EETSignerCount > 0 then
+      Dec(EETSignerCount);
+    if EETSignerCount = 0 then
+      begin
 {$IFNDEF USE_LIBEET}
-      xmlSecCryptoShutdown();
-      xmlSecCryptoAppShutdown();
-      xmlSecShutdown();
+        xmlSecCryptoShutdown();
+        xmlSecCryptoAppShutdown();
+        xmlSecShutdown();
 {$ELSE}
-      eetSignerShutdown;
+        eetSignerShutdown;
 {$ENDIF}
-    end;
+      end;
+  finally
+    Lock.Leave;
+  end;
 end;
 
 function TEETSigner.SignString(const s: string): AnsiString;
@@ -1319,5 +1332,11 @@ begin
   if Action = lnDeleted then
     TMemoryStream(Ptr).Free;
 end;
+
+initialization
+  Lock := TCriticalSection.Create;
+
+finalization
+  Lock.Free;
 
 end.

@@ -118,9 +118,8 @@ begin
   ms := TMemoryStream.Create;
   try
     lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
-    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
-    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
-    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_ROOT.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms, 'Body', 'Id') then
@@ -180,9 +179,8 @@ begin
     // EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
     EET.OnVerifyResponse := VerifyResponseCert;
     EET.Signer.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
-    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_pg.der'));
-    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod.der'));
-    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_prod_ROOT.der'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_ROOT.der'));
     EET.Initialize; { * init signer * }
 
     lblKeySubject.Caption := 'Certificate Subject :' + EET.Signer.PrivKeyInfo.CommonName;
@@ -295,6 +293,8 @@ begin
       begin
         if EET.ErrorCode <> 0 then
           ShowMessageFmt('Error : %d - %s', [EET.ErrorCode, EET.ErrorMessage]);
+        if Odp = nil then
+          ShowMessageFmt('Error : %s', ['Invalid response']);
       end;
     synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
     mmoLog.Lines.Add('ResponseCert : Subject ' + EET.Signer.ResponseCertInfo.Subject + ', Common Name : ' + EET.Signer.ResponseCertInfo.CommonName);
