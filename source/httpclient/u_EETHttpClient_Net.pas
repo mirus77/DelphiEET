@@ -62,9 +62,16 @@ end;
 procedure TEETHttpClientNet.ValidateCertificateEvent(const Sender: TObject;
   const ARequest: TURLRequest; const Certificate: TCertificate;
   var Accepted: Boolean);
+var
+  bRes : boolean;
 begin
   {* Trigger only if server certificate is not valid for HttpClient !!! *}
-  Accepted := False;
+  bRes := False;
+  if (Certificate.Start < now) and (now < Certificate.Expiry) then
+    bRes := True;
+  if bRes and (HttpsTrustName <> '') then
+    bRes := Certificate.ProtocolName = HttpsTrustName; // www.eet.cz
+  Accepted := bRes;
 end;
 
 end.
