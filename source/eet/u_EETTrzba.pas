@@ -498,11 +498,17 @@ begin
             FResponseStream.CopyFrom(SOAPResponse, SOAPResponse.Size);
 
             { * check SOAP response for valid XML signature* }
-            ValidateResponse(SOAPResponse);
+            if parameters.Hlavicka.Overeni = False then
+                ValidateResponse(SOAPResponse);
 
             { * parse response to result object if response XML is Valid * }
-            if FValidResponse then
-              ParseResponse;
+            ParseResponse;
+
+            if parameters.Hlavicka.Overeni and (Result <> nil) then
+              begin
+                FValidResponse := (Result.Chyba.Kod = 0);
+                FValidResponseCert := FValidResponse;
+              end;
 
             { * custom actions on the request * }
             SOAPResponse.Position := 0;
