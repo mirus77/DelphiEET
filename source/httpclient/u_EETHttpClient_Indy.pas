@@ -83,8 +83,8 @@ begin
         begin
           TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).Port := 0;
           TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).DefaultPort := 0;
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.Method := sslvTLSv1_1;
-          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.SSLVersions := [sslvTLSv1_1];
+          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.Method := sslvTLSv1_2;
+          TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.SSLVersions := [sslvTLSv1_2];
           TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.Mode := sslmClient;
           TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyMode := [];
           TIdSSLIOHandlerSocketOpenSSL(FIdHttpClient.IOHandler).SSLOptions.VerifyDepth := 0;
