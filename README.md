@@ -84,9 +84,10 @@ Delphi project Options for demo TestEET.dpr
 
 If this project helps you shorten development time, you can give me a donation :)
 
-| PayPal button | PayPal QR Code |
-| --------------- | ----------------- |
-| [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=V8LPMXJDTCUCE&currency_code=CZK&source=url) | <img src="https://raw.githubusercontent.com/mirus77/DelphiEET/master/img/QR_paypal.png" alt="QR Code for PayPal" height="100" width="100"> |
+| PayPal button | Revolut Me | Buy Me a Coffee | GitHub Sponsors |
+| --------------- | --------------- | ----------------- | ----------------- |
+| [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://paypal.me/mirus77) | <img src="https://raw.githubusercontent.com/mirus77/DelphiEET/master/img/revolut.png" alt="Revolut.me"> [Revolut.me](https://revolut.me/mirus77) | [![buymeacoffe](https://raw.githubusercontent.com/mirus77/DelphiEET/master/img/bmc-brand-logo.svg")](https://buymeacoffee.com/mirus77) | [GitHub Sponsors](https://github.com/sponsors/mirus77) |
+
 
 
 
