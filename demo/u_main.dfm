@@ -10,13 +10,11 @@ object TestEETForm: TTestEETForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   OnCreate = FormCreate
   OnShow = FormShow
   DesignSize = (
     932
     410)
-  PixelsPerInch = 96
   TextHeight = 13
   object btnOdeslat: TButton
     Left = 8
@@ -36,6 +34,8 @@ object TestEETForm: TTestEETForm
     Anchors = [akLeft, akTop, akRight, akBottom]
     Caption = 'pnlDebug'
     TabOrder = 1
+    ExplicitWidth = 930
+    ExplicitHeight = 322
     object pgcDebug: TPageControl
       Left = 1
       Top = 1
@@ -44,6 +44,8 @@ object TestEETForm: TTestEETForm
       ActivePage = tsRequest
       Align = alClient
       TabOrder = 0
+      ExplicitWidth = 928
+      ExplicitHeight = 320
       object tsRequest: TTabSheet
         Caption = 'Po'#382'adavek'
         object grpTrzba: TGroupBox
@@ -54,7 +56,9 @@ object TestEETForm: TTestEETForm
           Align = alClient
           Caption = ' Tr'#382'ba '
           TabOrder = 0
-          object synmRequest: TSynMemo
+          ExplicitWidth = 920
+          ExplicitHeight = 292
+          object synmRequest: TSynEdit
             Left = 2
             Top = 15
             Width = 918
@@ -65,23 +69,40 @@ object TestEETForm: TTestEETForm
             Font.Height = -13
             Font.Name = 'Courier New'
             Font.Style = []
+            Font.Quality = fqClearTypeNatural
             TabOrder = 0
-            CodeFolding.CollapsedLineColor = clGrayText
-            CodeFolding.FolderBarLinesColor = clGrayText
             CodeFolding.ShowCollapsedLine = True
-            CodeFolding.IndentGuidesColor = clGray
-            CodeFolding.IndentGuides = True
             UseCodeFolding = False
-            Gutter.AutoSize = True
             Gutter.Font.Charset = DEFAULT_CHARSET
             Gutter.Font.Color = clWindowText
             Gutter.Font.Height = -11
             Gutter.Font.Name = 'Courier New'
             Gutter.Font.Style = []
+            Gutter.Font.Quality = fqClearTypeNatural
             Gutter.ShowLineNumbers = True
+            Gutter.Bands = <
+              item
+                Kind = gbkMarks
+                Width = 13
+              end
+              item
+                Kind = gbkLineNumbers
+              end
+              item
+                Kind = gbkFold
+              end
+              item
+                Kind = gbkTrackChanges
+              end
+              item
+                Kind = gbkMargin
+                Width = 3
+              end>
             Highlighter = synxmlsyn2
             ReadOnly = True
-            FontSmoothing = fsmNone
+            SelectedColor.Alpha = 0.400000005960464500
+            ExplicitWidth = 916
+            ExplicitHeight = 275
           end
         end
       end
@@ -91,15 +112,15 @@ object TestEETForm: TTestEETForm
         object grpResponse: TGroupBox
           Left = 0
           Top = 0
-          Width = 888
+          Width = 922
           Height = 300
           Align = alClient
           Caption = ' Odpoved '
           TabOrder = 0
-          object synmResponse: TSynMemo
+          object synmResponse: TSynEdit
             Left = 2
             Top = 15
-            Width = 884
+            Width = 918
             Height = 283
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
@@ -107,23 +128,38 @@ object TestEETForm: TTestEETForm
             Font.Height = -13
             Font.Name = 'Courier New'
             Font.Style = []
+            Font.Quality = fqClearTypeNatural
             TabOrder = 0
-            CodeFolding.CollapsedLineColor = clGrayText
-            CodeFolding.FolderBarLinesColor = clGrayText
             CodeFolding.ShowCollapsedLine = True
-            CodeFolding.IndentGuidesColor = clGray
-            CodeFolding.IndentGuides = True
             UseCodeFolding = False
-            Gutter.AutoSize = True
             Gutter.Font.Charset = DEFAULT_CHARSET
             Gutter.Font.Color = clWindowText
             Gutter.Font.Height = -11
             Gutter.Font.Name = 'Courier New'
             Gutter.Font.Style = []
+            Gutter.Font.Quality = fqClearTypeNatural
             Gutter.ShowLineNumbers = True
+            Gutter.Bands = <
+              item
+                Kind = gbkMarks
+                Width = 13
+              end
+              item
+                Kind = gbkLineNumbers
+              end
+              item
+                Kind = gbkFold
+              end
+              item
+                Kind = gbkTrackChanges
+              end
+              item
+                Kind = gbkMargin
+                Width = 3
+              end>
             Highlighter = synxmlsyn2
             ReadOnly = True
-            FontSmoothing = fsmNone
+            SelectedColor.Alpha = 0.400000005960464500
           end
         end
       end
@@ -133,7 +169,7 @@ object TestEETForm: TTestEETForm
         object grpLog: TGroupBox
           Left = 0
           Top = 0
-          Width = 888
+          Width = 922
           Height = 300
           Align = alClient
           Caption = ' Log '
@@ -141,7 +177,7 @@ object TestEETForm: TTestEETForm
           object pnlLog: TPanel
             Left = 2
             Top = 15
-            Width = 884
+            Width = 918
             Height = 283
             Align = alClient
             Caption = 'pnlLog'
@@ -149,7 +185,7 @@ object TestEETForm: TTestEETForm
             object mmoLog: TMemo
               Left = 1
               Top = 1
-              Width = 882
+              Width = 916
               Height = 281
               Align = alClient
               ScrollBars = ssBoth
@@ -196,6 +232,7 @@ object TestEETForm: TTestEETForm
     Anchors = [akLeft, akTop, akRight]
     Caption = ' '
     TabOrder = 5
+    ExplicitWidth = 441
     object lblKeyValidFrom: TLabel
       Left = 1
       Top = 1
@@ -204,6 +241,7 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeyValidFrom'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
     object lblKeyValidTo: TLabel
       Left = 89
@@ -213,6 +251,7 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeyValidTo'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
     object lblSpace1: TLabel
       Left = 75
@@ -232,6 +271,7 @@ object TestEETForm: TTestEETForm
     Anchors = [akLeft, akTop, akRight]
     Caption = ' '
     TabOrder = 6
+    ExplicitWidth = 441
     object lblKeySubject: TLabel
       Left = 1
       Top = 1
@@ -240,12 +280,10 @@ object TestEETForm: TTestEETForm
       Align = alLeft
       Caption = 'lblKeySubject'
       Layout = tlCenter
+      ExplicitHeight = 13
     end
   end
   object synxmlsyn2: TSynXMLSyn
-    Options.AutoDetectEnabled = False
-    Options.AutoDetectLineLimit = 0
-    Options.Visible = False
     WantBracesParsed = False
     Left = 752
     Top = 208

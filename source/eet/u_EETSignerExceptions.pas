@@ -38,10 +38,10 @@ sSignerEmptyXML  = 'XML data jsou prázdná';
 sSignerGetRawData = 'Chyba pøi získávání dat certikátu, funkce : %s';
 
 type
-  {: @abstract(XML dokument nije ispravan)}
+  {: @abstract(XML document is not valid)}
   EEETXMLException = class(Exception);
 
-  {: @abstract(Pogreška potpisivanja)}
+  {: @abstract(Signing error)}
   EEETSignerException = class (Exception);
 
 implementation

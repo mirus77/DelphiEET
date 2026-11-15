@@ -53,7 +53,8 @@ begin
         HTTP.Sock.SSL.CertCAFile := FRootCertFile;
       HTTP.Sock.ConnectionTimeout := FConnectTimeout;
       HTTP.Document.LoadFromStream(aRequestStream);
-      HTTP.MimeType := 'text/xml';
+      HTTP.MimeType := 'text/xml; charset=utf-8';
+      HTTP.Headers.Add('SOAPAction: "http://fs.gov.cz/eet/OdeslaniTrzby"');
       if HTTP.HTTPMethod('POST', NewUrl) then
         begin
           case HTTP.Resultcode of

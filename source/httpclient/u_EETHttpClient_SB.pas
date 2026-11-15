@@ -31,7 +31,7 @@ constructor TEETHttpClientSB.Create(aOwner: TComponent);
 begin
   inherited Create(aOwner);
   FRootCertFile := '';
-  FHttpsTrustName := 'www.eet.cz';
+  FHttpsTrustName := ''; // CN of the HTTPS server, e.g. 'pg.trzbyeet.gov.cz' ('' = no CN check)
 end;
 
 procedure TEETHttpClientSB.ScRemoteCertificateValidation(Sender: TObject; RemoteCertificate: TScCertificate;
@@ -42,8 +42,8 @@ var
 begin
   if FHttpsTrustName <> '' then
     begin
-      // Compare Subject of server certificate with trusted defined subject 'www.eet.cz'
-      if not SameText(RemoteCertificate.Subject, FHttpsTrustName) then
+      // Compare CN (OID 2.5.4.3) of server certificate with HttpsTrustName
+      if not SameText(RemoteCertificate.SubjectName.Values['2.5.4.3'], FHttpsTrustName) then
         Errors := Errors + [csOtherError];
     end;
 
@@ -57,7 +57,7 @@ begin
             // Get publisher of server certificate
             Cert := TScCertificate(CertificateList[CertificateList.Count-1]);
             // Verify publisher of server certificate with trusted CA
-            Cert.VerifyCertificate(CACert, Errors);
+            Cert.VerifyCertificateChain(nil, CACert, Errors); // nil = no CRL check
           end;
       finally
         CACert.Free;
@@ -77,7 +77,8 @@ begin
     aRequest.Method := rmPOST;
     aRequest.SSLOptions.OnServerCertificateValidation := ScRemoteCertificateValidation;
     aRequest.ReadWriteTimeout := FConnectTimeout + FReceiveTimeout;
-    aRequest.ContentType := 'text/xml';
+    aRequest.ContentType := 'text/xml; charset=utf-8';
+    aRequest.Headers.Add('SOAPAction', '"http://fs.gov.cz/eet/OdeslaniTrzby"');
     if FUseProxy then
       begin
         aRequest.Proxy.Address := FProxyHost;

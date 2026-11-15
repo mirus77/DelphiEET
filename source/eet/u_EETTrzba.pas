@@ -33,7 +33,7 @@ type
     IsInitialized: boolean;
     FSigner: TEETSigner;
 {$IFNDEF USE_LIBEET}
-    procedure InsertWsse(ParentNode: IXMLNode);
+    procedure InsertWsse(ParentNode: IXMLNode; const BinarySecurityToken: string);
 {$ENDIF}
   public
     URL: string;
@@ -42,7 +42,8 @@ type
     procedure Initialize;
     procedure Finalize;
     function NewRevenue: IXMLTrzbaType;
-    function SignRevenue(const parameters: IXMLTrzbaType): boolean;
+    function SignRevenue(const parameters: IXMLTrzbaType): boolean; deprecated; { EET 2.0 has no PKP/BKP }
+    { SendOnly - no meaning in EET 2.0 (formerly: do not recalculate PKP/BKP) }
     function SendRevenue(aHttpClient: TEETHttpClient; const parameters: IXMLTrzbaType; SendOnly: boolean = false;
       aTimeOut: Integer = 0): IXMLOdpovedType;
     function HasWarnings(Odpoved: IXMLOdpovedType): boolean;
@@ -186,7 +187,7 @@ end;
 
 {$IFNDEF USE_LIBEET}
 
-procedure TEETTrzba.InsertWsse(ParentNode: IXMLNode);
+procedure TEETTrzba.InsertWsse(ParentNode: IXMLNode; const BinarySecurityToken: string);
 var
   SecHeader: IXMLSecurityHeaderType;
   Signature: IXMLSignatureType;
@@ -204,6 +205,7 @@ begin
   SecHeader.BinarySecurityToken.ValueType :=
     'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
   SecHeader.BinarySecurityToken.Attributes['wsu:Id'] := 'id-TheCert';
+  SecHeader.BinarySecurityToken.Text := BinarySecurityToken;
 
   // Signature
   Signature := NewSignature;
@@ -226,7 +228,7 @@ begin
 
   Signature.SignatureValue.Text := '';
 
-  // SecurityTokenReferenco pro KeyInfo;
+  // SecurityTokenReference for KeyInfo;
   SecTokenReference := NewSecurityTokenReference;
   SecTokenReference.OwnerDocument.Options := [doNodeAutoCreate];
   SecTokenReference.Attributes['wsu:Id'] := 'id-TheSecurityTokenReference';
@@ -309,15 +311,6 @@ begin
 
   result.Hlavicka.dat_odesl := DateTimeToXMLTime(now);
 
-  result.Data.Rezim := 0;
-
-  result.KontrolniKody.Pkp.Cipher := 'RSA2048';
-  result.KontrolniKody.Pkp.Digest := 'SHA256';
-  result.KontrolniKody.Pkp.Encoding := 'base64';
-
-  result.KontrolniKody.Bkp.Digest := 'SHA1';
-  result.KontrolniKody.Bkp.Encoding := 'base16';
-
 end;
 
 function TEETTrzba.SendRevenue(aHttpClient: TEETHttpClient; const parameters: IXMLTrzbaType; SendOnly: boolean;
@@ -351,8 +344,6 @@ var
       Doc.Options := [doNodeAutoCreate];
       DocTrzba.Options := [doNodeAutoCreate];
 {$ENDIF}
-      if not SendOnly then
-        SignRevenue(parameters);
       SOAPRequest.Clear;
       SaveToXML(parameters, SOAPRequest);
       SOAPRequest.Position := 0;
@@ -607,16 +598,10 @@ begin
       iNode := iNode.ChildNodes.FindNode(SSoapNameSpacePre + ':Header');
       if iNode <> nil then
         begin
-          InsertWsse(iNode);
-          iNode := iNode.ChildNodes.FindNode('wsse:Security',
-            'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
-          if iNode <> nil then
-            begin
-              iNode := iNode.ChildNodes.FindNode('wsse:BinarySecurityToken',
-                'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd');
-              if iNode <> nil then
-                iNode.Text := string(FSigner.GetRawCertDataAsBase64String);
-            end;
+          // BinarySecurityToken must be filled inside InsertWsse - nodes created there belong to temporary
+          // documents (NewSecurity...) which are freed on exit; later change of these nodes calls
+          // DoNodeChange on freed document -> Access Violation (Win64)
+          InsertWsse(iNode, string(FSigner.GetRawCertDataAsBase64String));
         end;
     end;
   (SOAPRequest as TMemoryStream).Clear;
@@ -626,35 +611,10 @@ begin
 end;
 
 function TEETTrzba.SignRevenue(const parameters: IXMLTrzbaType): boolean;
-var
-  sPKPData: string;
 begin
-  result := false;
-  if not IsInitialized then
-    exit;
-
-  // milisecond in output correction
-//  parameters.Hlavicka.dat_odesl.XSToNative(DateTimeToXMLTime(parameters.Hlavicka.dat_odesl.AsDateTime));
-//  parameters.Data.dat_trzby.XSToNative(DateTimeToXMLTime(parameters.Data.dat_trzby.AsDateTime));
-
-  parameters.KontrolniKody.pkp.Text := '';
-  parameters.KontrolniKody.bkp.Text := '';
-
-  // source data for PKP
-  sPKPData := '';
-  sPKPData := parameters.Data.dic_popl;
-  sPKPData := sPKPData + '|' + IntToStr(parameters.Data.id_provoz);
-  sPKPData := sPKPData + '|' + parameters.Data.id_pokl;
-  sPKPData := sPKPData + '|' + parameters.Data.porad_cis;
-  sPKPData := sPKPData + '|' + parameters.Data.dat_trzby;
-  sPKPData := sPKPData + '|' + parameters.Data.celk_trzba;
-
-  // generate PKP
-  parameters.KontrolniKody.pkp.Text := FSigner.MakePKP(sPKPData);
-  // generate BKP
-  parameters.KontrolniKody.bkp.Text := FSigner.MakeBKP(sPKPData);
-
-  result := parameters.KontrolniKody.pkp.Text <> '';
+  // EET 2.0 has no control codes PKP/BKP, the message is only signed (SignRequest).
+  // The method is kept for backward compatibility.
+  result := IsInitialized;
 end;
 
 procedure TEETTrzba.ValidateResponse(SOAPResponse: TStream);

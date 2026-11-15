@@ -33,7 +33,7 @@ constructor TEETHttpClientIndy.Create(aOwner: TComponent);
 begin
   inherited Create(aOwner);
   FRootCertFile := '';
-  FHttpsTrustName := 'www.eet.cz';
+  FHttpsTrustName := ''; // CN of the HTTPS server, e.g. 'pg.trzbyeet.gov.cz' ('' = no CN check)
 end;
 
 destructor TEETHttpClientIndy.Destroy;
@@ -106,6 +106,8 @@ begin
               FIdHttpClient.ProxyParams.ProxyPassword := FProxyPassword;
             end;
         end;
+      FIdHttpClient.Request.ContentType := 'text/xml; charset=utf-8';
+      FIdHttpClient.Request.CustomHeaders.Values['SOAPAction'] := '"http://fs.gov.cz/eet/OdeslaniTrzby"';
       FIdHttpClient.Post(aUrl, aRequestStream, aResponseStream);
     except
       on E: Exception do

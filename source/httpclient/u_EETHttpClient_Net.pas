@@ -49,7 +49,7 @@ begin
 
     aRequestStream.Position := 0;
     try
-      aHttp.Post(aURL, aRequestStream, aResponseStream);
+      aHttp.Post(aURL, aRequestStream, aResponseStream, [TNetHeader.Create('Content-Type', 'text/xml; charset=utf-8'), TNetHeader.Create('SOAPAction', '"http://fs.gov.cz/eet/OdeslaniTrzby"')]);
     except
       on E: Exception do
         raise EEETHttpClientException.Create(E.Message);
@@ -62,16 +62,13 @@ end;
 procedure TEETHttpClientNet.ValidateCertificateEvent(const Sender: TObject;
   const ARequest: TURLRequest; const Certificate: TCertificate;
   var Accepted: Boolean);
-var
-  bRes : boolean;
 begin
-  {* Trigger only if server certificate is not valid for HttpClient !!! *}
-  bRes := False;
-  if (Certificate.Start < now) and (now < Certificate.Expiry) then
-    bRes := True;
-  if bRes and (HttpsTrustName <> '') then
-    bRes := Certificate.ProtocolName = HttpsTrustName; // www.eet.cz
-  Accepted := bRes;
+  {* Newer Delphi (e.g. 13) fires the event for every HTTPS connection, older versions only on a certificate error.
+     Accepted on input = result of the system check (chain, CN, date) - we only make it stricter. *}
+  Accepted := Accepted and (Certificate.Start < Now) and (Now < Certificate.Expiry);
+  // CertName = CN of the certificate (CertGetNameString / CERT_NAME_SIMPLE_DISPLAY_TYPE)
+  if Accepted and (HttpsTrustName <> '') then
+    Accepted := SameText(Certificate.CertName, HttpsTrustName);
 end;
 
 end.

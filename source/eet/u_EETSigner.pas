@@ -18,7 +18,7 @@ uses Classes,
   SysUtils;
 
 const
-  FISKXML_TNSSCHEMA_URI = 'http://fs.mfcr.cz/eet/schema/v3';
+  FISKXML_TNSSCHEMA_URI = 'http://fs.gov.cz/eet/schema/v4';
 
 Type
   TEETSignerCertInfo = record
@@ -314,6 +314,9 @@ begin
     if secKey <> nil then
       xmlSecKeyDestroy(secKey);
   end;
+{$ELSE}
+  CheckActive;
+  Result := eetSignerGetRawCertDataAsBase64String(FMngr);
 {$ENDIF}
 end;
 
@@ -942,9 +945,6 @@ begin
       // load verify certificate
       if FCERTrustedList.Count > 0 then
         begin
-{$IFNDEF USE_LIBEET}
-          certkeyformat := xmlSecKeyDataFormatCertDer;
-{$ENDIF}
           for I := 0 to FCERTrustedList.Count - 1 do
             begin
               ms := FCERTrustedList.GetStream(I);
@@ -954,7 +954,9 @@ begin
               ms.Read(PAnsiChar(certkeystring)^, ms.size);
               ms.Seek(0, soFromBeginning);
               if Pos(AnsiString('-BEGIN CERTIFICATE-'), certkeystring) > 0 then
-                certkeyformat := xmlSecKeyDataFormatCertPem;
+                certkeyformat := xmlSecKeyDataFormatCertPem
+              else
+                certkeyformat := xmlSecKeyDataFormatCertDer;
 
               if xmlSecCryptoAppKeysMngrCertLoadMemory(FMngr, ms.Memory, ms.size, certkeyformat,
                 $100 { xmlSecKeyDataTypeTrusted } ) < 0 then
@@ -1084,7 +1086,7 @@ begin
       raise EEETSignerException.CreateFmt(sSignerSignFail, ['xmlSecTransformDefaultPushBin']);
 
     if TransCtx.Result.size <> SIGSIZE
-    // potpis je uvijek SIGSIZE (256 byte) velièine
+    // signature size is always SIGSIZE (256 bytes)
     then
       raise EEETSignerException.CreateFmt(sSignerUnexpectedSignature, [TransCtx.Result.size]);
 
@@ -1172,7 +1174,7 @@ begin
     Assert(BodyNode <> nil);
 
     RegisterID(BodyNode, 'Id');
-    // kvuli node:Reference failed zaregistrovat hodnotu wsu:Id jako Id
+    // register wsu:Id value as Id, otherwise "node:Reference failed"
 
     DSigCtx.keyInfoWriteCtx.base64LineSize := 0;
 

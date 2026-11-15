@@ -12,7 +12,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
-  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynMemo, SynEditHighlighter,
+  Controls, Forms, Dialogs, StdCtrls, SynEdit, SynEditHighlighter,
   SynHighlighterXML, ExtCtrls, ComCtrls,
   u_EETSigner,
   {$IFDEF USE_INDY_CLIENT}    u_EETHttpClient_Indy,   {$ENDIF}
@@ -24,10 +24,10 @@ uses
 type
   TTestEETForm = class(TForm)
     synxmlsyn2: TSynXMLSyn;
-    synmRequest: TSynMemo;
+    synmRequest: TSynEdit;
     grpTrzba: TGroupBox;
     grpResponse: TGroupBox;
-    synmResponse: TSynMemo;
+    synmResponse: TSynEdit;
     btnOdeslat: TButton;
     pnlDebug: TPanel;
     btnVerifyResponse: TButton;
@@ -117,9 +117,12 @@ begin
   lSigner := TEETSigner.Create(nil);
   ms := TMemoryStream.Create;
   try
-    lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
-    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
-    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_ROOT.der'));
+    lSigner.LoadPFXCertFromFile(ExpandFileName('..\cert\CA_EET-Playground-CZ00000019.p12'), 'aaaa1111');
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\ca_eet-root_cert-playground.crt'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\ca_eet-sub_cert-playground.crt'));
+    // odpoved EET 2.0 podepisuje certifikat GFR vydany I.CA
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\ica_root_rsa_05-2022.der'));
+    lSigner.AddTrustedCertFromFileName(ExpandFileName('..\cert\ica_public_rsa_06-2022.der'));
     ms.LoadFromFile('response.xml');
     lSigner.Active := true;
     if lSigner.VerifyXML(ms, 'Body', 'Id') then
@@ -139,10 +142,6 @@ begin
 end;
 
 procedure TTestEETForm.DoSendRevenue;
-
-const
-  LocFS: TFormatSettings = (DecimalSeparator: '.');
-
 var
   Odp: IXMLOdpovedType;
   eTrzba: IXMLTrzbaType;
@@ -151,12 +150,6 @@ var
   I: Integer;
   ms: TMemoryStream;
   aClient: TEETHttpClient;
-
-  function DoubleToCastkaType(Value: Double): String;
-  begin
-    Result := FormatFloat('0.00', Value, LocFS);
-  end;
-
 begin
   EET := TEETTrzba.Create(nil);
   ms := TMemoryStream.Create;
@@ -169,49 +162,39 @@ begin
     // Verify HTTPS Server certificate
     aClient.RootCertFile := ExpandFileName('..\cert\DigiCertGlobalRootG2.cer');
     // Verify CommonName of HTTPS Sever certificate
-    aClient.HttpsTrustName := 'www.eet.cz'; // for HTTPS ComonName validation default : 'www.eet.cz'
+    aClient.HttpsTrustName := 'pg.trzbyeet.gov.cz'; // CN HTTPS serveru (produkce: 'trzbyeet.gov.cz')
     aClient.ConnectTimeout := 2000;
     aClient.ReceiveTimeout := 3000;
     // aClient.UseProxy := true;
     // aClient.ProxyHost := 'proxy';
 
-    EET.URL := 'https://pg.eet.cz:443/eet/services/EETServiceSOAP/v3';
-    // EET.URL := 'https://prod.eet.cz:443/eet/services/EETServiceSOAP/v3';
+    EET.URL := 'https://pg.trzbyeet.gov.cz/eet/services/EETServiceSOAP/v4';
+    // EET.URL := 'https://trzbyeet.gov.cz/eet/services/EETServiceSOAP/v4';
     EET.OnVerifyResponse := VerifyResponseCert;
-    EET.Signer.LoadPFXCertFromFile(ExpandFileName('..\cert\EET_CA1_Playground-CZ00000019.p12'), 'eet');
-    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA.der'));
-    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\trusted_CA_ROOT.der'));
+    EET.Signer.LoadPFXCertFromFile(ExpandFileName('..\cert\CA_EET-Playground-CZ00000019.p12'), 'aaaa1111');
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\ca_eet-root_cert-playground.crt'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\ca_eet-sub_cert-playground.crt'));
+    // odpoved EET 2.0 podepisuje certifikat GFR vydany I.CA
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\ica_root_rsa_05-2022.der'));
+    EET.Signer.AddTrustedCertFromFileName(ExpandFileName('..\cert\ica_public_rsa_06-2022.der'));
     EET.Initialize; { * init signer * }
 
     lblKeySubject.Caption := 'Certificate Subject :' + EET.Signer.PrivKeyInfo.CommonName;
     lblKeyValidFrom.Caption := 'Certificate Key valid from :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidBefore);
     lblKeyValidTo.Caption := 'Certificate Key valid to :' + DateTimeToStr(EET.Signer.PrivKeyInfo.notValidAfter);
 
-    eTrzba.Hlavicka.prvni_zaslani := False;
-    // eTrzba.Hlavicka.overeni := True;
+    eTrzba.Hlavicka.prvni_zaslani := True; // pri opakovanem odeslani False + nove uuid_zpravy a dat_odesl
+    // eTrzba.Hlavicka.overeni := True;    // jen test spojeni, vraci kod 0 bez POK
 
-    eTrzba.Data.dic_popl := 'CZ00000019';
-    eTrzba.Data.id_provoz := 273;
+    eTrzba.Data.Eic_popl := 'CZ00000019';
+    eTrzba.Data.Id_jednotky := 273;
     eTrzba.Data.id_pokl := '/5546/RO24';
     eTrzba.Data.porad_cis := '0/6460/ZQ42';
     eTrzba.Data.dat_trzby := EET.DateTimeToXMLTime(now);
     eTrzba.Data.celk_trzba := DoubleToCastkaType(34113);
-    eTrzba.Data.cerp_zuct := DoubleToCastkaType(679.00);
-    eTrzba.Data.cest_sluz := DoubleToCastkaType(5460.00);
-    eTrzba.Data.dan1 := DoubleToCastkaType(-172.39);
-    eTrzba.Data.dan2 := DoubleToCastkaType(-530.73);
-    eTrzba.Data.dan3 := DoubleToCastkaType(975.65);
-    eTrzba.Data.pouzit_zboz1 := DoubleToCastkaType(784.00);
-    eTrzba.Data.pouzit_zboz2 := DoubleToCastkaType(967.00);
-    eTrzba.Data.pouzit_zboz3 := DoubleToCastkaType(189.00);
-    eTrzba.Data.urceno_cerp_zuct := DoubleToCastkaType(324.00);
-    eTrzba.Data.zakl_dan1 := DoubleToCastkaType(-820.92);
-    eTrzba.Data.zakl_dan2 := DoubleToCastkaType(-3538.20);
-    eTrzba.Data.zakl_dan3 := DoubleToCastkaType(9756.46);
-    eTrzba.Data.zakl_nepodl_dph := DoubleToCastkaType(3036.00);
-
-
-     //EET.SignRevenue(eTrzba); // PKP,BKP creating
+    // nepovinne - uvadet jen kdyz jsou relevantni:
+    // eTrzba.Data.urceno_cerp_zuct := DoubleToCastkaType(324.00);
+    // eTrzba.Data.cerp_zuct := DoubleToCastkaType(679.00);
 
     // BEGIN - test for saving to XML and load from XML
      ms.Clear;
@@ -228,11 +211,6 @@ begin
 
     Odp := EET.SendRevenue(aClient, eTrzba, False, 0);
 
-//    ms.Clear;
-//    EET.SaveToXML(eTrzba, ms);
-//    ms.Position := 0;
-//    ms.SaveToFile('eTrzbaSigned.xml');
-
     // loading xml Soap Request for treatment
     // loading xml Soap Response for treatment
     EET.RequestStream.Position := 0;
@@ -246,7 +224,8 @@ begin
 
     if (EET.ErrorCode = 0) and (Odp <> nil) then
       begin
-        if Odp.Potvrzeni <> nil then
+        // pozor: Odp.Potvrzeni/Odp.Chyba uzel automaticky vytvori, nikdy nejsou nil
+        if Odp.Potvrzeni.Pok <> '' then
           begin
             if EET.ValidResponse and EET.ValidResponseCert then
               begin
@@ -259,7 +238,7 @@ begin
                         Lst.Add(Format('%s - code : %d', [Odp.Varovani[I].Text, Odp.Varovani[I].kod_varov]));
                     end;
                   if SameText(Odp.Hlavicka.uuid_zpravy, eTrzba.Hlavicka.uuid_zpravy) then
-                    Lst.Add(Format('FIK : %s', [Odp.Potvrzeni.fik]));
+                    Lst.Add(Format('POK : %s', [Odp.Potvrzeni.Pok]));
                   if EET.HasWarnings(Odp) then
                     MessageDlg(Lst.Text, mtWarning, [mbOK], 0)
                   else
@@ -296,7 +275,6 @@ begin
         if Odp = nil then
           ShowMessageFmt('Error : %s', ['Invalid response']);
       end;
-    synmResponse.Lines.Add('<!-- PKP : ' + eTrzba.KontrolniKody.pkp.Text + ' -->');
     mmoLog.Lines.Add('ResponseCert : Subject ' + EET.Signer.ResponseCertInfo.Subject + ', Common Name : ' + EET.Signer.ResponseCertInfo.CommonName);
   finally
     Odp := nil;

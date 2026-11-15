@@ -66,9 +66,6 @@ uses
 {$IFDEF _DYNAMIC_LOAD_XMLSEC}
   SyncObjs,
 {$ENDIF}
-{$IFDEF DEBUG}
-  vcruntime,
-{$ENDIF}
   Windows, u_EETSignerExceptions, DateUtils{$IF RTLVersion >= 25}, AnsiStrings{$IFEND};
 
 {$IFNDEF _DYNAMIC_LOAD_XMLSEC}
@@ -157,39 +154,142 @@ begin
 end;
 
 {$IFDEF DEBUG}
+// libxml2/xmlsec DLLs are linked with static CRT - FILE* opened by another CRT (ucrtbase.dll, msvcrt.dll)
+// must not be passed into them (crash with __fastfail / Access Violation). Debug dumps therefore use
+// only functions with a filename parameter (the file is opened inside the DLL) or are written in Delphi.
+
+function _xmlStr(const S: xmlCharPtr): string;
+begin
+  if S <> nil then
+    Result := UTF8ToString(PAnsiChar(S))
+  else
+    Result := '(null)';
+end;
+
+function _xmlSecTransformName(Transform: xmlSecTransformPtr): string;
+begin
+  if (Transform <> nil) and (Transform.id <> nil) then
+    Result := _xmlStr(Transform.id.name)
+  else
+    Result := '(null)';
+end;
+
+function _xmlSecMemBufText(Transform: xmlSecTransformPtr): string;
+var
+  Buf: xmlSecBufferPtr;
+  S: UTF8String;
+begin
+  Result := '';
+  if Transform = nil then
+    Exit;
+  Buf := xmlSecTransformMemBufGetBuffer(Transform);
+  if (Buf <> nil) and (Buf.data <> nil) and (Buf.size > 0) then
+    begin
+      SetString(S, PAnsiChar(Buf.data), Buf.size);
+      Result := UTF8ToString(S);
+    end;
+end;
+
 procedure _xmlSecKeyDebugDump(Key: xmlSecKeyPtr; filename: xmlCharPtr);
 var
-  fOutput: PFILE;
+  Mngr: xmlSecKeysMngrPtr;
+  KeyCopy: xmlSecKeyPtr;
 begin
-  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
-  if fOutput <> nil then
-  begin
-    xmlSecKeyDebugDump(Key, fOutput);
-    crt_fclose(fOutput);
+  // key is saved via temporary keys manager (keys.xml format), file is written by xmlsec itself
+  if Key = nil then
+    Exit;
+  Mngr := xmlSecKeysMngrCreate();
+  if Mngr = nil then
+    Exit;
+  try
+    if xmlSecCryptoAppDefaultKeysMngrInit(Mngr) < 0 then
+      Exit;
+    KeyCopy := xmlSecKeyDuplicate(Key);
+    if KeyCopy = nil then
+      Exit;
+    if xmlSecCryptoAppDefaultKeysMngrAdoptKey(Mngr, KeyCopy) < 0 then
+      begin
+        xmlSecKeyDestroy(KeyCopy);
+        Exit;
+      end;
+    xmlSecCryptoAppDefaultKeysMngrSave(Mngr, Pointer(filename), $FFFF { xmlSecKeyDataTypeAny } );
+  finally
+    xmlSecKeysMngrDestroy(Mngr);
   end;
 end;
 
 procedure _xmlDocDump(Doc: xmlDocPtr; filename: xmlCharPtr);
-var
-  fOutput: PFILE;
 begin
-  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
-  if fOutput <> nil then
-  begin
-    xmlDocDump(fOutput, Doc);
-    crt_fclose(fOutput);
-  end;
+  // file is opened by libxml2 itself
+  xmlSaveFile(PAnsiChar(filename), Doc);
 end;
 
 procedure _xmlSecDSignDebugDump(DSignCtx: xmlSecDSigCtxPtr; filename: xmlCharPtr);
+const
+  StatusNames: array [0 .. 2] of string = ('unknown', 'succeeded', 'invalid');
 var
-  fOutput: PFILE;
-begin
-  fOutput := crt_fopen(filename, PAnsiChar(string('w')));
-  if fOutput <> nil then
+  L: TStringList;
+  I, Cnt: Integer;
+  RefCtx: xmlSecDSigReferenceCtxPtr;
+
+  function StatusName(Status: xmlSecDSigStatus): string;
   begin
-    xmlSecDSigCtxDebugDump(DSignCtx, fOutput);
-    crt_fclose(fOutput);
+    if Ord(Status) in [0 .. 2] then
+      Result := StatusNames[Ord(Status)]
+    else
+      Result := IntToStr(Ord(Status));
+  end;
+
+begin
+  // Delphi replacement of xmlSecDSigCtxDebugDump (it needs FILE* from xmlsec CRT)
+  if DSignCtx = nil then
+    Exit;
+  L := TStringList.Create;
+  try
+    if DSignCtx.operation = xmlSecTransformOperationSign then
+      L.Add('= SIGNATURE CONTEXT')
+    else
+      L.Add('= VERIFICATION CONTEXT');
+    L.Add('== Status: ' + StatusName(DSignCtx.status));
+    L.Add('== flags: 0x' + IntToHex(DSignCtx.flags, 8));
+    L.Add('== flags2: 0x' + IntToHex(DSignCtx.flags2, 8));
+    L.Add('== Id: "' + _xmlStr(DSignCtx.id) + '"');
+    L.Add('== Signature method: ' + _xmlSecTransformName(DSignCtx.signMethod));
+    L.Add('== C14N method: ' + _xmlSecTransformName(DSignCtx.c14nMethod));
+    if DSignCtx.signKey <> nil then
+      L.Add('== Signature key name: "' + _xmlStr(DSignCtx.signKey.name) + '"')
+    else
+      L.Add('== Signature key: (null)');
+    if DSignCtx.result <> nil then
+      L.Add('== Result size: ' + IntToStr(DSignCtx.result.size));
+
+    Cnt := xmlSecPtrListGetSize(@DSignCtx.signedInfoReferences);
+    L.Add('== SignedInfo references: ' + IntToStr(Cnt));
+    for I := 0 to Cnt - 1 do
+      begin
+        RefCtx := xmlSecPtrListGetItem(@DSignCtx.signedInfoReferences, I);
+        if RefCtx = nil then
+          Continue;
+        L.Add('=== Reference ' + IntToStr(I) + ': status=' + StatusName(RefCtx.status) + ' id="' + _xmlStr(RefCtx.id) +
+          '" uri="' + _xmlStr(RefCtx.uri) + '" digest=' + _xmlSecTransformName(RefCtx.digestMethod));
+        if RefCtx.preDigestMemBufMethod <> nil then
+          begin
+            L.Add('=== PreDigest data - start buffer:');
+            L.Add(_xmlSecMemBufText(RefCtx.preDigestMemBufMethod));
+            L.Add('=== PreDigest data - end buffer');
+          end;
+      end;
+
+    if DSignCtx.preSignMemBufMethod <> nil then
+      begin
+        L.Add('== PreSigned data - start buffer:');
+        L.Add(_xmlSecMemBufText(DSignCtx.preSignMemBufMethod));
+        L.Add('== PreSigned data - end buffer');
+      end;
+
+    L.SaveToFile(UTF8ToString(PAnsiChar(filename)), TEncoding.UTF8);
+  finally
+    L.Free;
   end;
 end;
 {$ENDIF}
@@ -261,7 +361,7 @@ begin
     if buffer[asn1_time.length - 1] = 'Z' then
       begin
         GetTimeZoneInformation(TimeZone);
-        tz := TimeZone.Bias div -60;  //pro ÈR buï 1 nebo 2
+        tz := TimeZone.Bias div -60;  // for CZ either 1 or 2
 //        tz := DateUtils.TTimeZone.Local.UtcOffset.Hours;
       end;
   end
@@ -279,7 +379,7 @@ begin
     if buffer[asn1_time.length - 1] = 'Z' then
       begin
         GetTimeZoneInformation(TimeZone);
-        tz := TimeZone.Bias div -60;  //pro ÈR buï 1 nebo 2
+        tz := TimeZone.Bias div -60;  // for CZ either 1 or 2
 //        tz := DateUtils.TTimeZone.Local.UtcOffset.Hours;
       end;
   end;
