@@ -15,7 +15,7 @@ Delphi component for sending sales records to the Czech **EET 2.0** service (htt
 | Production | `https://trzbyeet.gov.cz/eet/services/EETServiceSOAP/v4` (from 1 Nov 2026 in transitional mode, mandatory from 1 Jan 2027) |
 | Schema | `http://fs.gov.cz/eet/schema/v4` (`source/eet/EETXMLSchema.xsd`) |
 | Response | `Potvrzeni/@pok` (POK, 39 chars, ends with `-ff` on playground), errors in `Chyba/@kod`, warnings in `Varovani` |
-| Changes from 1.0 | `dic_popl` → `eic_popl`, `id_provoz` → `id_jednotky`, no PKP/BKP, no `rezim`/VAT items, amounts are `Double` |
+| Changes from 1.0 | `dic_popl` → `eic_popl`, `id_provoz` → `id_jednotky`, no PKP/BKP, no `rezim`/VAT items |
 
 ### Certificates (folder `cert`)
 
@@ -45,12 +45,14 @@ Trzba.Data.Id_jednotky := 273;
 Trzba.Data.Id_pokl     := '/5546/RO24';
 Trzba.Data.Porad_cis   := '0/6460/ZQ42';
 Trzba.Data.Dat_trzby   := EET.DateTimeToXMLTime(Now);
-Trzba.Data.Celk_trzba  := 34113;
+Trzba.Data.Celk_trzba  := DoubleToCastkaType(34113);  // or directly '34113.00'
 
 Odp := EET.SendRevenue(HttpClient, Trzba);
 if (EET.ErrorCode = 0) and EET.ValidResponse and (Odp.Potvrzeni.Pok <> '') then
   ShowMessage('POK: ' + Odp.Potvrzeni.Pok);
 ```
+
+Amounts (`Celk_trzba`, `Urceno_cerp_zuct`, `Cerp_zuct`) are strings in `CastkaType` format: decimal point and exactly 2 decimals, e.g. `'34113.00'`. Fill them the way that suits your application; `DoubleToCastkaType` converts a number using `FormatFloat('0.00')`.
 
 When resending, keep `Data` unchanged and give the header a **new** `uuid_zpravy`, a new `dat_odesl` and `prvni_zaslani = false`.
 
